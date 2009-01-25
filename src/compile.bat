@@ -1,0 +1,1 @@
+cl -Oi -LD -D NO_TRACE=1 -MT xlive.cpp xlive.def
