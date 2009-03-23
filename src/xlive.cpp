@@ -366,6 +366,12 @@ extern "C"  int __stdcall xlive_5292 (DWORD, DWORD, DWORD, DWORD) {
 	return 0;
 }
 
+extern "C" int __stdcall xlive_5297 (void *, int) {
+	trace ("xlive_5297: XLiveInitializeEx\n");
+	return 0;
+}
+	
+
 extern "C"  DWORD __stdcall xlive_5300 (DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD) { 
 	trace ("xlive_5300: XSessionCreate\n");
 	return -1;
@@ -546,7 +552,9 @@ void getSavefilePath (int __unused, char * pBuffer, char * pszSaveName) {
 	char * pszPath = (char *)(0xFA0308+dwLoadOffset);	// char pszPathPersonal[128]; // "%USERPROFILE%\Documents\Rockstar Games\GTA IV\"
 	
 	if (dwGameVersion == 0x00010001)
-		char * pszPath = (char *)(0xFA7878+dwLoadOffset);	// char pszPathPersonal[128]; // "%USERPROFILE%\Documents\Rockstar Games\GTA IV\"
+		pszPath = (char *)(0xFA7878+dwLoadOffset);	// char pszPathPersonal[128]; // "%USERPROFILE%\Documents\Rockstar Games\GTA IV\"
+        else if (dwGameVersion == 0x00010003)       
+		pszPath = (char *)(0xFBF860+dwLoadOffset);	// char pszPathPersonal[128]; // "%USERPROFILE%\Documents\Rockstar Games\GTA IV\"
 
 	strcpy_s (pBuffer, 256, pszPath);
 	strcat_s (pBuffer, 256, "savegames");
@@ -600,6 +608,53 @@ void patch101 () {
 	trace ("Patching OK (1.0.1)\n");
 }
 
+void patch103 () {
+	dwGameVersion = 0x00010003;	// GTA IV 1.0.3 (patch 3)
+
+
+	DWORD oldProtect;
+	// enable write access to code and rdata
+	if (!VirtualProtect ((LPVOID)(dwLoadOffset+0x1000+0x400000), 0x8E4000, PAGE_EXECUTE_READWRITE, &oldProtect)) {
+		trace ("ERROR: unable to unprotect code seg\n");
+		return;
+	}
+
+	if (!VirtualProtect ((LPVOID)(dwLoadOffset+0x8e5000+0x400000), 0x1B1000, PAGE_READWRITE, &oldProtect)) 
+		trace ("ERROR: unable to unprotect .rdata seg\n");
+
+
+	// process patches
+	*(WORD *)(0x60C095+dwLoadOffset) = 0x9090; 	// NOP; NOP - save file CRC32 check
+	*(BYTE *)(0x7A3A70+dwLoadOffset) = 0xC3;	// RETN - enable debugger in error menu (don't load WER.dll)
+	*(BYTE *)(0x7A4750+dwLoadOffset) = 0xC3;	// RETN - skip files.txt hash check
+
+	*(BYTE  *)(0x471CBD+dwLoadOffset) = 0xE9;	// JMP
+	*(DWORD *)(0x471CBE+dwLoadOffset) = 0x16;	// jmp target
+	*(BYTE  *)(0x472E50+dwLoadOffset) = 0xC3;	// RETN - certificates check
+	*(BYTE  *)(0x471360+dwLoadOffset) = 0xC2;	// RETN - remove connect to the RGSC 
+	*(BYTE  *)(0x471361+dwLoadOffset) = 0x04;	// RETN - remove connect to the RGSC 
+	*(BYTE  *)(0x471362+dwLoadOffset) = 0x00;	// RETN - remove connect to the RGSC 
+	memset ((BYTE *)(0x471D60+dwLoadOffset), 0x90, 0x1B);
+	*(WORD  *)(0x471CEA+dwLoadOffset) = 0x9090;	// NOP; NOP - RGSC initialization check
+        *(DWORD *)(0x471D80+dwLoadOffset) = 0x90909090;	// NOP*4- last RGSC init check
+        *(WORD  *)(0x471D84+dwLoadOffset) = 0x9090;	// NOP*4- last RGSC init check
+	*(WORD *)(0x471CF1+dwLoadOffset) = 0xC033;	// XOR eax, eax - RGSC initialization check
+	*(WORD *)(0x471CF8+dwLoadOffset) = 0xA390;	// NOP; MOV [], eax
+
+	*(DWORD *)(0x401815+dwLoadOffset) = 1;		// disable sleep
+
+	injectFunction (0x60BAC0, (DWORD)getSavefilePath); // replace getSavefilePath
+
+        memset ((BYTE *)(0x451E19+dwLoadOffset), 0x90, 0x1BF);	// EFC20
+	*(DWORD *)(0xA0D1E0+dwLoadOffset) = 0x90C301B0;	// mov al, 1; retn
+	*(DWORD *)(0xA0D200+dwLoadOffset) = 0x90C301B0;
+	*(DWORD *)(0xA0D210+dwLoadOffset) = 0x90C301B0;
+	*(DWORD *)(0xA0D240+dwLoadOffset) = 0x90C301B0;
+
+// B001C3 => 0xC301B090
+
+	trace ("Patching OK (1.0.3)\n");
+}
 void patch102 () {
 	dwGameVersion = 0x00010002;	// GTA IV 1.0.2 (patch 2)
 
@@ -650,6 +705,8 @@ void patchCode () {
 		patch101 ();
 	else if (signature == 0xC483FFE4) 
 		patch102 ();
+	else if (signature == 0x280F0000)
+		patch103 ();
 	else 
 		trace ("Unknown game version, skipping patches (signature = 0x%08x)\n", signature);
 }
@@ -701,7 +758,7 @@ BOOL APIENTRY DllMain( HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpRese
 		logfile = fopen ("xlive_trace.log", "at");
 		if (logfile)
 			InitializeCriticalSection (&d_lock);
-		trace ("Log started\n");
+		trace ("Log started (xliveless 0.95)\n");
 #endif
 		patchCode ();
 		loadPlugins ("*.asi");

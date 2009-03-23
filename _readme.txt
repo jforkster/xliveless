@@ -11,7 +11,7 @@ Main features:
   * in-built asi-loader (no need to replace original files)
   * asi-loader searches for .asi files in the root game folder and .asi and .dll in the 'plugins' folder
 
-Additional features for GTA IV version 1.0.1 and 1.0.2:
+Additional features for GTA IV version 1.0.1-1.0.3:
   * removed savefile check (you can load save file made by any offline XLive user)
   * removed files.txt check (integrated replacement of FileCheckFix and MagicPatch)
   * restored access to the system debugger in the critical error menu (removed loading of WER.dll)
