@@ -7,6 +7,8 @@ void getSavefilePath (int __unused, char * pBuffer, char * pszSaveName) {
 		pszPath = (char *)(0xFA7778+dwLoadOffset);	// char pszProgramPath[128]; 
         else if (dwGameVersion == 0x00010003)
 		pszPath = (char *)(0xFBF260+dwLoadOffset);
+        else if (dwGameVersion == 0x00010004)
+		pszPath = (char *)(0xFC4700+dwLoadOffset);	// ?? FC4500?
 	strcpy_s (pBuffer, 256, pszPath);
 	strcat_s (pBuffer, 256, "savegames");
 
@@ -35,6 +37,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
 			injectFunction (0x6080E0, (DWORD)getSavefilePath);
 		else if (dwGameVersion == 0x00010003)
 			injectFunction (0x60BAC0, (DWORD)getSavefilePath);
+		else if (dwGameVersion == 0x00010004)
+			injectFunction (0x60BBD0, (DWORD)getSavefilePath);
 		break;
 	case DLL_THREAD_ATTACH:
 	case DLL_THREAD_DETACH:

@@ -12,13 +12,15 @@ extern "C" __declspec(dllexport) void trace (char * message, ...) {
 	if (!logfile)
 		return;
 	EnterCriticalSection (&d_lock);
+	if (!logfile)
+		return;
 	SYSTEMTIME	t;
 	GetLocalTime (&t);	
 	fprintf (logfile, "%02d/%02d/%04d %02d:%02d:%02d.%03d ", t.wDay, t.wMonth, t.wYear, t.wHour, t.wMinute, t.wSecond, t.wMilliseconds);
 	va_list	arg;	
 	va_start (arg, message);
 	vfprintf (logfile, message, arg);
-	// fflush (logfile);
+// fflush (logfile);
 	va_end (arg); 
 	LeaveCriticalSection (&d_lock);
 }
@@ -555,6 +557,8 @@ void getSavefilePath (int __unused, char * pBuffer, char * pszSaveName) {
 		pszPath = (char *)(0xFA7878+dwLoadOffset);	// char pszPathPersonal[128]; // "%USERPROFILE%\Documents\Rockstar Games\GTA IV\"
         else if (dwGameVersion == 0x00010003)       
 		pszPath = (char *)(0xFBF860+dwLoadOffset);	// char pszPathPersonal[128]; // "%USERPROFILE%\Documents\Rockstar Games\GTA IV\"
+	else if (dwGameVersion == 0x00010004)
+		pszPath = (char *)(0xFC4B00+dwLoadOffset);	// char pszPathPersonal[128]; // "%USERPROFILE%\Documents\Rockstar Games\GTA IV\"
 
 	strcpy_s (pBuffer, 256, pszPath);
 	strcat_s (pBuffer, 256, "savegames");
@@ -576,7 +580,6 @@ void getSavefilePath (int __unused, char * pBuffer, char * pszSaveName) {
 }
 
 // === miscellaneous patches ===
-
 void patch101 () {
 	dwGameVersion = 0x00010001;	// GTA IV 1.0.1 (patch 1)
 
@@ -630,7 +633,10 @@ void patch103 () {
 
 	*(BYTE  *)(0x471CBD+dwLoadOffset) = 0xE9;	// JMP
 	*(DWORD *)(0x471CBE+dwLoadOffset) = 0x16;	// jmp target
-	*(BYTE  *)(0x472E50+dwLoadOffset) = 0xC3;	// RETN - certificates check
+//	*(BYTE  *)(0x472E50+dwLoadOffset) = 0xC3;	// RETN - certificates check
+	*(BYTE  *)(0x472E50+dwLoadOffset) = 0xC2;	// RETN - certificates check
+	*(BYTE  *)(0x472E51+dwLoadOffset) = 0x08;	// RETN - certificates check
+	*(BYTE  *)(0x472E52+dwLoadOffset) = 0x00;	// RETN - certificates check
 	*(BYTE  *)(0x471360+dwLoadOffset) = 0xC2;	// RETN - remove connect to the RGSC 
 	*(BYTE  *)(0x471361+dwLoadOffset) = 0x04;	// RETN - remove connect to the RGSC 
 	*(BYTE  *)(0x471362+dwLoadOffset) = 0x00;	// RETN - remove connect to the RGSC 
@@ -655,6 +661,56 @@ void patch103 () {
 
 	trace ("Patching OK (1.0.3)\n");
 }
+
+void patch104 () {
+	dwGameVersion = 0x00010004;	// GTA IV 1.0.4 (patch 4)
+
+	DWORD oldProtect;
+	// enable write access to code and rdata
+	if (!VirtualProtect ((LPVOID)(dwLoadOffset+0x1000+0x400000), 0x8E4000, PAGE_EXECUTE_READWRITE, &oldProtect)) {
+		trace ("ERROR: unable to unprotect code seg\n");
+		return;
+	}
+
+	if (!VirtualProtect ((LPVOID)(dwLoadOffset+0x8e5000+0x400000), 0x1B1000, PAGE_READWRITE, &oldProtect)) 
+		trace ("ERROR: unable to unprotect .rdata seg\n");
+
+	// process patches
+	*(WORD *)(0x60C1A5+dwLoadOffset) = 0x9090; 	// NOP; NOP - save file CRC32 check
+	*(BYTE *)(0x7A4900+dwLoadOffset) = 0xC3;	// RETN - enable debugger in error menu (don't load WER.dll)
+	*(BYTE *)(0x7A4A10+dwLoadOffset) = 0xC3;	// RETN - skip files.txt hash check
+
+	*(BYTE  *)(0x471E5D+dwLoadOffset) = 0xE9;	// JMP
+	*(DWORD *)(0x471E5E+dwLoadOffset) = 0x16;	// jmp target
+//	*(BYTE  *)(0x472FF0+dwLoadOffset) = 0xC3;	// RETN - certificates check
+	*(BYTE  *)(0x472FF0+dwLoadOffset) = 0xC2;	// RETN - certificates check
+	*(BYTE  *)(0x472FF1+dwLoadOffset) = 0x08;	// RETN - certificates check
+	*(BYTE  *)(0x472FF2+dwLoadOffset) = 0x00;	// RETN - certificates check
+
+	*(BYTE  *)(0x471500+dwLoadOffset) = 0xC2;	// RETN - remove connect to the RGSC 
+	*(BYTE  *)(0x471501+dwLoadOffset) = 0x04;	// RETN - remove connect to the RGSC 
+	*(BYTE  *)(0x471502+dwLoadOffset) = 0x00;	// RETN - remove connect to the RGSC 
+	memset ((BYTE *)(0x471F00+dwLoadOffset), 0x90, 0x1B);
+	*(WORD  *)(0x471E8A+dwLoadOffset) = 0x9090;	// NOP; NOP - RGSC initialization check
+        *(DWORD *)(0x471F20+dwLoadOffset) = 0x90909090;	// NOP*4- last RGSC init check
+        *(WORD  *)(0x471F24+dwLoadOffset) = 0x9090;	// NOP*4- last RGSC init check 
+	*(WORD *)(0x471E91+dwLoadOffset) = 0xC033;	// XOR eax, eax - RGSC initialization check
+	*(WORD *)(0x471E98+dwLoadOffset) = 0xA390;	// NOP; MOV [], eax
+
+	*(DWORD *)(0x4017F5+dwLoadOffset) = 1;		// disable sleep
+
+	injectFunction (0x60BBD0, (DWORD)getSavefilePath); // replace getSavefilePath
+
+        memset ((BYTE *)(0x452129+dwLoadOffset), 0x90, 0x1BF);	// EFC20
+
+	*(DWORD *)(0xA0D9C0+dwLoadOffset) = 0x90C301B0;	// mov al, 1; retn
+	*(DWORD *)(0xA0D9E0+dwLoadOffset) = 0x90C301B0;
+	*(DWORD *)(0xA0D9F0+dwLoadOffset) = 0x90C301B0;
+	*(DWORD *)(0xA0DA20+dwLoadOffset) = 0x90C301B0;
+
+	trace ("Patching OK (1.0.4)\n");
+}
+
 void patch102 () {
 	dwGameVersion = 0x00010002;	// GTA IV 1.0.2 (patch 2)
 
@@ -707,6 +763,8 @@ void patchCode () {
 		patch102 ();
 	else if (signature == 0x280F0000)
 		patch103 ();
+ 	else if (signature == 0x110FF300)
+		patch104 ();
 	else 
 		trace ("Unknown game version, skipping patches (signature = 0x%08x)\n", signature);
 }
@@ -758,7 +816,7 @@ BOOL APIENTRY DllMain( HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpRese
 		logfile = fopen ("xlive_trace.log", "at");
 		if (logfile)
 			InitializeCriticalSection (&d_lock);
-		trace ("Log started (xliveless 0.95)\n");
+		trace ("Log started (xliveless 0.97)\n");
 #endif
 		patchCode ();
 		loadPlugins ("*.asi");
@@ -771,7 +829,11 @@ BOOL APIENTRY DllMain( HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpRese
 	case DLL_PROCESS_DETACH:
 #ifndef NO_TRACE
 		if (logfile) {
+			EnterCriticalSection (&d_lock);
+			fflush (logfile);
 			fclose (logfile);
+			logfile = NULL;
+			LeaveCriticalSection (&d_lock);
 			DeleteCriticalSection (&d_lock);
 		}
 #endif
