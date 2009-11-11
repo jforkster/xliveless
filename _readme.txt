@@ -1,4 +1,4 @@
-XLiveLess - small replacement of the xlive.dll with no online support
+XLiveLess - small replacement of the xlive.dll with no online support 
 
 Notes:
   * run LaunchGTAIV.exe instead GTAIV.exe (to prevent "drunk" camera)
@@ -11,13 +11,16 @@ Main features:
   * in-built asi-loader (no need to replace original files)
   * asi-loader searches for .asi files in the root game folder and .asi and .dll in the 'plugins' folder
 
-Additional features for GTA IV version 1.0.1-1.0.4:
+Additional features for GTA IV version 1.0.1.0-1.0.4.0 en, 1.0.0.4 (update 5):
   * removed savefile check (you can load save file made by any offline XLive user)
   * removed files.txt check (integrated replacement of FileCheckFix and MagicPatch)
   * restored access to the system debugger in the critical error menu (removed loading of WER.dll)
   * enabled write access to memory in code and .rdata segments (no need to call VirtualProtect from a .asi)
   * disabled RGSC
   * moved 'savegames' folder (see below).
+
+Additional features for Red Faction: Guerilla:
+  * removed savefile check
 
 Installation:
   * unpack the file xlive.dll into the game folder (don't forget to remove the asi loader if there is one)
