@@ -1,14 +1,11 @@
-// XLiveLess - xlive.dll replacement with integrated ASI loader
-// This file donated to the public domain.
-#include <windows.h>
-#include <psapi.h>
-#include <stdlib.h>
+// -No Copyright- 2010 Stanislav "listener" Golovin
+// This file donated to the public domain
+#include "stdafx.h"
 
 #ifndef NO_TRACE
-#include <stdio.h>
 CRITICAL_SECTION d_lock;
 static FILE * logfile;
-extern "C" __declspec(dllexport) void trace (char * message, ...) {
+XLIVELESS_API void trace (char * message, ...) {
 	if (!logfile)
 		return;
 	EnterCriticalSection (&d_lock);
@@ -25,17 +22,17 @@ extern "C" __declspec(dllexport) void trace (char * message, ...) {
 	LeaveCriticalSection (&d_lock);
 }
 #else
-extern "C" __declspec(dllexport) void trace(char * message, ...) {}
+XLIVELESS_API void trace(char * message, ...) {}
 #endif
 
-extern "C" __declspec(dllexport) DWORD dwGameVersion = 0x00000000;	// 0 - unknown
-extern "C" __declspec(dllexport) DWORD	dwLoadOffset = 0x400000;	
+XLIVELESS_API GameVersion dwGameVersion = GvUnknown;	
+XLIVELESS_API DWORD	dwLoadOffset = 0x400000;	
 
 // Delphi don't support importing variables from DLL
-extern "C" __declspec(dllexport) DWORD getGameVersion () { return dwGameVersion; }
-extern "C" __declspec(dllexport) DWORD getLoadOffset () { return dwLoadOffset; }
+XLIVELESS_API GameVersion getGameVersion () { return dwGameVersion; }
+XLIVELESS_API DWORD getLoadOffset () { return dwLoadOffset; }
 
-extern "C" __declspec(dllexport) void injectFunction (DWORD dwAddress, DWORD pfnReplacement) {
+XLIVELESS_API void injectFunction (DWORD dwAddress, DWORD pfnReplacement) {
 	dwAddress += dwLoadOffset;
 	BYTE * patch = (BYTE *)dwAddress;
 	*patch = 0xE9;	// JMP
@@ -44,6 +41,7 @@ extern "C" __declspec(dllexport) void injectFunction (DWORD dwAddress, DWORD pfn
 
 
 // === Start of xlive functions ===
+// TODO: move all GfWL functions to the separate file
 // #1: XWSAStartup
 extern "C"  int __stdcall XWSAStartup (WORD wVersionRequested, LPWSADATA lpWsaData) { 
 	lpWsaData->wVersion = 2;
@@ -119,7 +117,7 @@ extern "C"  SOCKET __stdcall XSocketAccept (SOCKET s, sockaddr_in * addr, int * 
 }
 
 // #15: XSocketSelect
-extern "C"  int __stdcall XSocketSelect (int n, void *, void *, void *, void *) { 
+extern "C"  int __stdcall XSocketSelect (int n, fd_set * readfds, fd_set * writefds, fd_set * exceptfds, const struct timeval * timeout) { 
 	trace ("XSocketSelect\n");
 	return 0;
 }
@@ -247,14 +245,12 @@ extern "C"  DWORD __stdcall XNetQosRelease (DWORD) {
 
 // #73: XNetGetTitleXnAddr
 extern "C"  DWORD __stdcall XNetGetTitleXnAddr (DWORD * pAddr) {
-	// trace ("xlive_73: XNetGetTitleXnAddr\n");	// don't uncomment, unless you want to get very long trace log
 	*pAddr = 0x0100007F;	// 127.0.0.1
 	return 4; 
 }
 
 // #75: XNetGetEthernetLinkStatus
 extern "C"  DWORD __stdcall XNetGetEthernetLinkStatus () { 
-	// trace ("xlive_75 (XNetGetEthernetLinkStatus)\n");	// don't uncomment, unless you want to get very long trace log
 	return 1; 
 }
 
@@ -271,12 +267,12 @@ extern "C" int __stdcall XCustomGetLastActionPress (DWORD, DWORD, DWORD) {
 
 // #651: XNotifyGetNext
 extern "C"  int __stdcall XNotifyGetNext (HANDLE hNotification, DWORD dwMsgFilter, DWORD * pdwId, void * pParam) {
-//	trace ("XNotifyGetNext\n");	// too noisy
-	return 0;
+	return 0;   // no notifications
 }
 
 // #652: XNotifyPositionUI
 extern "C" DWORD __stdcall XNotifyPositionUI (DWORD dwPosition) {
+    trace ("XNotifyPositionUI (%d)\n", dwPosition);
 	return 0;
 }
 
@@ -287,7 +283,7 @@ extern "C"  DWORD __stdcall XGetOverlappedExtendedError (void *) {
 }
 
 // #1083: XGetOverlappedResult
-extern "C"  DWORD __stdcall XGetOverlappedResult (void *, DWORD * pResult, DWORD) { 
+extern "C"  DWORD __stdcall XGetOverlappedResult (void *, DWORD * pResult, DWORD bWait) { 
 	if (pResult)
 		*pResult = 0;	// 0 elements enumerated
 	trace ("XGetOverlappedResult\n");
@@ -333,9 +329,11 @@ extern "C"  int __stdcall XLiveOnResetDevice (DWORD) {
 }
 
 // #5008: XHVCreateEngine
-extern "C"  int __stdcall XHVCreateEngine (DWORD, DWORD, DWORD) { 
+extern "C"  int __stdcall XHVCreateEngine (DWORD, DWORD, void ** ppEngine) { 
 	trace ("XHVCreateEngine\n");
-	return -1;	// disable live voice
+    if (ppEngine)
+        *ppEngine = NULL;
+	return -1;	// disable live voice   
 }
 
 // #5022: XLiveGetUpdateInformation
@@ -399,7 +397,9 @@ extern "C"  int __stdcall XCancelOverlapped (DWORD) {
 
 // #5256: XEnumerate
 extern "C"  int __stdcall XEnumerate (HANDLE hEnum, void * pvBuffer, DWORD cbBuffer, DWORD * pcItemsReturned, void * pOverlapped) { // XEnumerate
-	trace ("XEnumerate\n");
+	trace ("XEnumerate (buffer=> %p[%d])\n", pvBuffer, cbBuffer);
+//    if (pvBuffer && cbBuffer) 
+//        memset (pvBuffer, 0, cbBuffer);
 	if (pcItemsReturned)
 		*pcItemsReturned = 0;
 	return 0;	// some error ? 
@@ -420,7 +420,7 @@ extern "C"  int __stdcall XUserGetXUID (DWORD, DWORD * pXuid) {
 
 // #5262: XUserGetSigninState
 extern "C"  int __stdcall XUserGetSigninState (DWORD dwUserIndex) {
-	trace ("xlive_5262: XUserGetSigninState (%d)\n", dwUserIndex);
+//	trace ("xlive_5262: XUserGetSigninState (%d)\n", dwUserIndex);
 	return 1; // eXUserSigninState_SignedInLocally
 }
 
@@ -434,32 +434,31 @@ extern "C"  int __stdcall XUserGetName (DWORD dwUserId, char * pBuffer, DWORD dw
 }
 
 // #5264: XUserAreUsersFriends
-extern "C"  int __stdcall XUserAreUsersFriends(DWORD, DWORD, DWORD, DWORD, DWORD) {
+extern "C"  int __stdcall XUserAreUsersFriends(DWORD dwUserIndex, DWORD * pXuids, DWORD dwXuidCount, DWORD * pResult, void * pOverlapped) {
 	trace ("XUserAreUsersFriends\n");
-	return 0;
+    return ERROR_NOT_LOGGED_ON;
 }
 
 // #5265: XUserCheckPrivilege
 extern "C"  int __stdcall XUserCheckPrivilege (DWORD user, DWORD priv, PBOOL b) {
 	trace ("XUserCheckPrivilege (%d, %d, ..)\n", user, priv);
 	*b = false;
-	return 0;
+	return ERROR_NOT_LOGGED_ON;
 }
 
 struct XUSER_SIGNIN_INFO {
-   DWORD		xuidL;
-   DWORD		xuidH;
-   DWORD                dwInfoFlags;
-   DWORD		UserSigninState;
-   DWORD                dwGuestNumber;
-   DWORD                dwSponsorUserIndex;
-   CHAR                 szUserName[16];
+   DWORD	xuidL;
+   DWORD	xuidH;
+   DWORD    dwInfoFlags;
+   DWORD	UserSigninState;
+   DWORD    dwGuestNumber;
+   DWORD    dwSponsorUserIndex;
+   CHAR     szUserName[16];
 };
-
 
 // #5267: XUserGetSigninInfo
 extern "C"  int __stdcall XUserGetSigninInfo (DWORD dwUser, DWORD dwFlags, XUSER_SIGNIN_INFO * pInfo) {  
-	trace ("XUserGetSigninInfo (%d, %d, ...)\n", dwUser, dwFlags);
+//	trace ("XUserGetSigninInfo (%d, %d, ...)\n", dwUser, dwFlags);
 	pInfo->xuidL = pInfo->xuidH = dwFlags != 1 ? (dwUser+1)*0x10001000 : 0; // some arbitrary id for offline user, INVALID_XUID for online user
 	if (dwFlags != 1) {
 		pInfo->dwInfoFlags = 1;
@@ -506,36 +505,45 @@ extern "C"  DWORD __stdcall XUserWriteAchievements (DWORD, DWORD, DWORD) {
 }
 
 // #5280: XUserCreateAchievementEnumerator
-extern "C"  DWORD __stdcall XUserCreateAchievementEnumerator (DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, PHANDLE phEnum) {
-	trace ("XUserCreateAchievementEnumerator\n");
-	*phEnum = INVALID_HANDLE_VALUE;
-	return 0;
+extern "C"  DWORD __stdcall XUserCreateAchievementEnumerator (DWORD dwTitleId, DWORD dwUserIndex, DWORD xuidL, DWORD xuidHi, DWORD dwDetailFlags, DWORD dwStartingIndex, DWORD cItem, DWORD * pcbBuffer, HANDLE * phEnum) {
+	trace ("XUserCreateAchievementEnumerator (dwStartingIndex=>%d, cItem=>%d \n", dwStartingIndex, cItem);
+    if (pcbBuffer)
+        *pcbBuffer = 0;
+    if (phEnum)
+	    *phEnum = INVALID_HANDLE_VALUE;
+	return 1;   // return error (otherwise, 0-size buffer will be allocated)
 }
 
 // #5281: XUserReadStats
 extern "C"  DWORD __stdcall XUserReadStats (DWORD, DWORD, DWORD, DWORD, DWORD, DWORD * pcbResults, DWORD * pResults, void *) { 
-	trace ("XUserReadStats\n");	
-	*pcbResults = 4;
-	*pResults = 0;
+	trace ("XUserReadStats\n");
+	if (pcbResults)	
+		*pcbResults = 4;
+	if (pResults)
+		*pResults = 0;
 	return 0;
 }
 
 // #5284: XUserCreateStatsEnumeratorByRank
-extern "C"  DWORD __stdcall XUserCreateStatsEnumeratorByRank (DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, PHANDLE phEnum) { 
+extern "C"  DWORD __stdcall XUserCreateStatsEnumeratorByRank (DWORD dwTitleId, DWORD dwRankStart, DWORD dwNumRows, DWORD dwNuStatSpec, void * pSpecs, DWORD * pcbBuffer, PHANDLE phEnum) { 
 	trace ("XUserCreateStatsEnumeratorByRank\n");
+    if (pcbBuffer)
+        *pcbBuffer = 0;
 	*phEnum = INVALID_HANDLE_VALUE;
-	return 0;
+	return 1;
 }
 
 // #5286: XUserCreateStatsEnumeratorByXuid
-extern "C"  DWORD __stdcall XUserCreateStatsEnumeratorByXuid (DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, PHANDLE phEnum) { 
+extern "C"  DWORD __stdcall XUserCreateStatsEnumeratorByXuid (DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD * pcbBuffer, PHANDLE phEnum) { 
 	trace ("XUserCreateStatsEnumeratorByXuid\n");
+    if (pcbBuffer)
+        pcbBuffer = 0;
 	*phEnum = INVALID_HANDLE_VALUE;
-	return 0;
+	return 1;
 }
 
 // #5292: XUserSetContextEx
-extern "C"  int __stdcall XUserSetContextEx (DWORD, DWORD, DWORD, DWORD) {
+extern "C"  int __stdcall XUserSetContextEx (DWORD dwUserIndex, DWORD dwContextId, DWORD dwContextValue, void * pOverlapped) {
 	trace ("XUserSetContextEx\n");
 	return 0;
 }
@@ -718,10 +726,10 @@ extern "C"  DWORD __stdcall XSessionArbitrationRegister (DWORD, DWORD, DWORD, DW
 }
 
 // #5335: XTitleServerCreateEnumerator
-extern "C"  DWORD __stdcall XTitleServerCreateEnumerator (DWORD, DWORD, DWORD, PHANDLE phEnum) {
-	trace ("XTitleServerCreateEnumerator\n");
+extern "C"  DWORD __stdcall XTitleServerCreateEnumerator (LPCSTR pszServerInfo, DWORD cItem, DWORD * pcbBuffer, PHANDLE phEnum) {
+	trace ("XTitleServerCreateEnumerator (cItem=> %d)\n", cItem);
 	*phEnum = INVALID_HANDLE_VALUE;
-	return 0;
+	return 1;
 }
 
 // #5336: XSessionLeaveRemote
@@ -785,6 +793,7 @@ extern "C" DWORD __stdcall XLiveContentUninstall (void * pContentInfo, void * px
 
 // #5355: XLiveContentGetPath
 extern "C" DWORD __stdcall XLiveContentGetPath (DWORD dwUserIndex, void * pContentInfo, wchar_t * pszPath, DWORD * pcchPath) {
+    trace ("XLiveContentGetPath\n");
 	if (pcchPath)
 		*pcchPath = 0;
 	if (pszPath)
@@ -803,6 +812,7 @@ extern "C" DWORD __stdcall XLiveContentCreateEnumerator (DWORD, void *, DWORD *p
 // #5361: XLiveContentRetrieveOffersByDate
 extern "C" DWORD __stdcall XLiveContentRetrieveOffersByDate (DWORD dwUserIndex, DWORD dwOffserInfoVersion, 
 	SYSTEMTIME * pstStartDate, void * pOffserInfoArray, DWORD * pcOfferInfo, void * pOverlapped) {
+        trace ("XLiveContentRetrieveOffersByDate\n");
 	if (pcOfferInfo)
 		*pcOfferInfo = 0;
 	return 0;
@@ -816,7 +826,7 @@ extern "C" DWORD __stdcall XShowMarketplaceUI (DWORD dwUserIndex, DWORD dwEntryP
 // === replacements ===
 struct FakeProtectedBuffer {
 	DWORD	dwMagick;	
-	int		nSize;
+	DWORD	dwSize;
 	DWORD	__fill[2]; // To match buffer size in Rick's wrapper
 	BYTE	bData[4];
 };
@@ -831,7 +841,7 @@ extern "C"  DWORD __stdcall XLivePBufferAllocate (int size, FakeProtectedBuffer 
 	}
 
 	(*pBuffer)->dwMagick = 0xDEADDEAD;	// some arbitrary number
-	(*pBuffer)->nSize = size;
+	(*pBuffer)->dwSize = size;
 	return 0;
 }
 
@@ -844,32 +854,32 @@ extern "C"  DWORD __stdcall XLivePBufferFree (FakeProtectedBuffer * pBuffer) {
 }
 
 // #5295: XLivePBufferSetByteArray
-extern "C"  DWORD __stdcall XLivePBufferSetByteArray (FakeProtectedBuffer * pBuffer, int offset, BYTE * source, int size) {
-	if (!pBuffer || pBuffer->dwMagick != 0xDEADDEAD || !source || offset < 0 || offset+size > pBuffer->nSize)
+extern "C"  DWORD __stdcall XLivePBufferSetByteArray (FakeProtectedBuffer * pBuffer, DWORD offset, BYTE * source, DWORD size) {
+	if (!pBuffer || pBuffer->dwMagick != 0xDEADDEAD || !source || offset < 0 || offset+size > pBuffer->dwSize)
 		return 0;
 	memcpy (pBuffer->bData+offset, source, size);
 	return 0;
 }
 
 // #5294: XLivePBufferGetByteArray
-extern "C"  DWORD __stdcall XLivePBufferGetByteArray (FakeProtectedBuffer * pBuffer, int offset, BYTE * destination, int size) {
-	if (!pBuffer || pBuffer->dwMagick != 0xDEADDEAD || !destination || offset < 0 || offset+size > pBuffer->nSize)
+extern "C"  DWORD __stdcall XLivePBufferGetByteArray (FakeProtectedBuffer * pBuffer, DWORD offset, BYTE * destination, DWORD size) {
+	if (!pBuffer || pBuffer->dwMagick != 0xDEADDEAD || !destination || offset < 0 || offset+size > pBuffer->dwSize)
 		return 0;
 	memcpy (destination, pBuffer->bData+offset, size);
 	return 0;
 }
 
 // #5019: XLivePBufferSetByte
-extern "C"  DWORD __stdcall XLivePBufferSetByte (FakeProtectedBuffer * pBuffer, int offset, BYTE value) {
-	if (!pBuffer || pBuffer->dwMagick != 0xDEADDEAD || offset < 0 || offset > pBuffer->nSize)
+extern "C"  DWORD __stdcall XLivePBufferSetByte (FakeProtectedBuffer * pBuffer, DWORD offset, BYTE value) {
+	if (!pBuffer || pBuffer->dwMagick != 0xDEADDEAD || offset < 0 || offset > pBuffer->dwSize)
 		return 0;
 	pBuffer->bData[offset] = value;
 	return 0;
 }
 
 // #5018: XLivePBufferGetByte
-extern "C"  DWORD __stdcall XLivePBufferGetByte (FakeProtectedBuffer * pBuffer, int offset, BYTE * value) {
-	if (!pBuffer || pBuffer->dwMagick != 0xDEADDEAD || !value || offset < 0 || offset > pBuffer->nSize)
+extern "C"  DWORD __stdcall XLivePBufferGetByte (FakeProtectedBuffer * pBuffer, DWORD offset, BYTE * value) {
+	if (!pBuffer || pBuffer->dwMagick != 0xDEADDEAD || !value || offset < 0 || offset > pBuffer->dwSize)
 		return 0;
 	*value = pBuffer->bData[offset];
 	return 0;
@@ -877,7 +887,7 @@ extern "C"  DWORD __stdcall XLivePBufferGetByte (FakeProtectedBuffer * pBuffer, 
 
 // #5020: XLivePBufferGetDWORD
 extern "C" DWORD __stdcall XLivePBufferGetDWORD (FakeProtectedBuffer * pBuffer, DWORD dwOffset, DWORD * pdwValue) {
-	if (!pBuffer || pBuffer->dwMagick != 0xDEADDEAD || dwOffset < 0 || dwOffset > pBuffer->nSize-4 || !pdwValue)
+	if (!pBuffer || pBuffer->dwMagick != 0xDEADDEAD || dwOffset < 0 || dwOffset > pBuffer->dwSize-4 || !pdwValue)
 		return 0;
 	*pdwValue = *(DWORD *)(pBuffer->bData+dwOffset);
 	return 0;
@@ -885,11 +895,18 @@ extern "C" DWORD __stdcall XLivePBufferGetDWORD (FakeProtectedBuffer * pBuffer, 
 
 // #5021: XLivePBufferSetDWORD
 extern "C" DWORD __stdcall XLivePBufferSetDWORD (FakeProtectedBuffer * pBuffer, DWORD dwOffset, DWORD dwValue ) {
-	if (!pBuffer || pBuffer->dwMagick != 0xDEADDEAD || dwOffset < 0 || dwOffset > pBuffer->nSize-4)
+	if (!pBuffer || pBuffer->dwMagick != 0xDEADDEAD || dwOffset < 0 || dwOffset > pBuffer->dwSize-4)
 		return 0;
 	*(DWORD *)(pBuffer->bData+dwOffset) = dwValue;
 	return 0;
 }
+
+// #5026: XLiveSetSponsorToken
+extern "C" DWORD __stdcall XLiveSetSponsorToken (LPCWSTR pwszToken, DWORD dwTitleId) {
+    trace ("XLiveSetSponsorToken (, 0x%08x)\n", dwTitleId);
+    return S_OK;
+}
+
 
 // #5036: XLiveCreateProtectedDataContext
 extern "C"  DWORD __stdcall XLiveCreateProtectedDataContext (DWORD * dwType, PHANDLE pHandle) {
@@ -936,21 +953,25 @@ extern "C"  DWORD __stdcall XLiveProtectData (BYTE * pInBuffer, DWORD dwInDataSi
 		memcpy (pOutBuffer, pInBuffer, dwInDataSize);
 	return 0;
 }
+
+// #5367
+extern "C" DWORD __stdcall xlive_5367 (HANDLE, DWORD, DWORD, BYTE *, DWORD) {
+    trace  ("xlive_5367\n");
+    return 1;
+}
+
+// #5372
+extern "C" DWORD __stdcall xlive_5372 (HANDLE, DWORD, DWORD, DWORD, BYTE *, HANDLE) {
+    trace ("xlive_5372\n");
+    return 1;
+}
+
 // === end of xlive functions ===
+
+static char * pszPath = "";
 
 // change savefile path to "%USERPROFILE%\Documents\Rockstar Games\GTA IV\savegames\"
 void getSavefilePath (int __unused, char * pBuffer, char * pszSaveName) {
-	char * pszPath = (char *)(0xFA0308+dwLoadOffset);	// char pszPathPersonal[128]; // "%USERPROFILE%\Documents\Rockstar Games\GTA IV\"
-	
-	if (dwGameVersion == 0x00010001)
-		pszPath = (char *)(0xFA7878+dwLoadOffset);	// char pszPathPersonal[128]; // "%USERPROFILE%\Documents\Rockstar Games\GTA IV\"
-        else if (dwGameVersion == 0x00010003)       
-		pszPath = (char *)(0xFBF860+dwLoadOffset);	// char pszPathPersonal[128]; // "%USERPROFILE%\Documents\Rockstar Games\GTA IV\"
-	else if (dwGameVersion == 0x00010004)
-		pszPath = (char *)(0xFC4B00+dwLoadOffset);	// char pszPathPersonal[128]; // "%USERPROFILE%\Documents\Rockstar Games\GTA IV\"
-	else if (dwGameVersion == 0x00010005)
-		pszPath = (char *)(0x12898B0+dwLoadOffset);	// char pszPathPersonal[128]; // "%USERPROFILE%\Documents\Rockstar Games\GTA IV\"
-
 	strcpy_s (pBuffer, 256, pszPath);
 	strcat_s (pBuffer, 256, "savegames");
 
@@ -960,7 +981,7 @@ void getSavefilePath (int __unused, char * pBuffer, char * pszSaveName) {
 		CreateDirectory (pBuffer, NULL);
 	else if (!(attrs & FILE_ATTRIBUTE_DIRECTORY)) {
 		trace ("ERROR: unable to create directory '%s', file '%s' already exists\n", pBuffer);
-		strcpy (pBuffer, pszSaveName);
+		strcpy_s (pBuffer, 256, pszSaveName);
 		return;
 	}
 
@@ -968,20 +989,12 @@ void getSavefilePath (int __unused, char * pBuffer, char * pszSaveName) {
 		strcat_s (pBuffer, 256, "\\");
 		strcat_s (pBuffer, 256, pszSaveName);
 	}
+    trace ("[getSavefilePath]: '%s'\n", pBuffer);
 }
 
 // === miscellaneous patches ===
 void patch101 () {
-	dwGameVersion = 0x00010001;	// GTA IV 1.0.1 (patch 1)
-
-	DWORD oldProtect;
-	// enable write access to code and rdata
-	if (!VirtualProtect ((LPVOID)(dwLoadOffset+0x1000+0x400000), 0x8D8000, PAGE_EXECUTE_READWRITE, &oldProtect)) {
-		trace ("ERROR: unable to unprotect code seg\n");
-		return;
-	}
-	if (!VirtualProtect ((LPVOID)(dwLoadOffset+0x8D9000+0x400000), 0x1A8000, PAGE_READWRITE, &oldProtect)) 
-		trace ("ERROR: unable to unprotect .rdata seg\n");
+    dwGameVersion = IvPatch1;	// GTA IV 1.0.1 (patch 1)
 
 	// process patches
 	*(WORD *)(0x608C35+dwLoadOffset) = 0x9090; // NOP; NOP	- save file CRC32 check
@@ -998,24 +1011,43 @@ void patch101 () {
 
 	// replace getSavefilePath
 	injectFunction (0x608660, (DWORD)getSavefilePath);
+    pszPath = (char *)(0xFA7878+dwLoadOffset);	// char pszPathPersonal[128]; // "%USERPROFILE%\Documents\Rockstar Games\GTA IV\"
 
 	trace ("Patching OK (1.0.1)\n");
 }
 
+void patch102 () {
+    dwGameVersion = IvPatch2;	// GTA IV 1.0.2 (patch 2)
+
+	// process patches
+	*(WORD *)(0x6086B5+dwLoadOffset) = 0x9090; 	// NOP; NOP - save file CRC32 check
+	*(BYTE *)(0x79F710+dwLoadOffset) = 0xC3;	// RETN - enable debugger in error menu (don't load WER.dll)
+	*(BYTE *)(0x7A0740+dwLoadOffset) = 0xC3;	// RETN - skip files.txt hash check
+
+	*(BYTE *)(0x46FA7D+dwLoadOffset) = 0xE9;	// JMP
+	*(DWORD *)(0x46FA7E+dwLoadOffset)= 0x16;	// jmp target
+	*(BYTE *)(0x4701C0+dwLoadOffset) = 0xC3;	// RETN - certificates check
+	*(BYTE *)(0x46F120+dwLoadOffset) = 0xC2;	// RETN - remove connect to the RGSC 
+	*(BYTE *)(0x46F121+dwLoadOffset) = 0x04;	// RETN - remove connect to the RGSC 
+	*(BYTE *)(0x46F122+dwLoadOffset) = 0x00;	// RETN - remove connect to the RGSC 
+	memset ((BYTE *)(0x46FB16+dwLoadOffset), 0x90, 0x1B);
+	*(WORD *)(0x46FAAA+dwLoadOffset) = 0x9090;	// NOP; NOP - RGSC initialization check
+    *(WORD *)(0x46FB36+dwLoadOffset) = 0x9090;	// NOP; NOP - last RGSC init check
+    *(DWORD *)(0x46FB38+dwLoadOffset) = 0x90909090;
+	*(WORD *)(0x46FAB1+dwLoadOffset) = 0xC033;	// XOR eax, eax - RGSC initialization check
+	*(WORD *)(0x46FAB8+dwLoadOffset) = 0xA390;	// NOP; MOV [], eax
+
+	*(DWORD *)(0x401825+dwLoadOffset) = 1;		// disable sleep
+
+	// replace getSavefilePath
+	injectFunction (0x6080E0, (DWORD)getSavefilePath);
+    pszPath = (char *)(0xFA0308+dwLoadOffset);	// char pszPathPersonal[128]; // "%USERPROFILE%\Documents\Rockstar Games\GTA IV\"
+	
+	trace ("Patching OK (1.0.2)\n");
+}
+
 void patch103 () {
-	dwGameVersion = 0x00010003;	// GTA IV 1.0.3 (patch 3)
-
-
-	DWORD oldProtect;
-	// enable write access to code and rdata
-	if (!VirtualProtect ((LPVOID)(dwLoadOffset+0x1000+0x400000), 0x8E4000, PAGE_EXECUTE_READWRITE, &oldProtect)) {
-		trace ("ERROR: unable to unprotect code seg\n");
-		return;
-	}
-
-	if (!VirtualProtect ((LPVOID)(dwLoadOffset+0x8e5000+0x400000), 0x1B1000, PAGE_READWRITE, &oldProtect)) 
-		trace ("ERROR: unable to unprotect .rdata seg\n");
-
+    dwGameVersion = IvPatch3;	// GTA IV 1.0.3 (patch 3)
 
 	// process patches
 	*(WORD *)(0x60C095+dwLoadOffset) = 0x9090; 	// NOP; NOP - save file CRC32 check
@@ -1033,38 +1065,27 @@ void patch103 () {
 	*(BYTE  *)(0x471362+dwLoadOffset) = 0x00;	// RETN - remove connect to the RGSC 
 	memset ((BYTE *)(0x471D60+dwLoadOffset), 0x90, 0x1B);
 	*(WORD  *)(0x471CEA+dwLoadOffset) = 0x9090;	// NOP; NOP - RGSC initialization check
-        *(DWORD *)(0x471D80+dwLoadOffset) = 0x90909090;	// NOP*4- last RGSC init check
-        *(WORD  *)(0x471D84+dwLoadOffset) = 0x9090;	// NOP*4- last RGSC init check
+    *(DWORD *)(0x471D80+dwLoadOffset) = 0x90909090;	// NOP*4- last RGSC init check
+    *(WORD  *)(0x471D84+dwLoadOffset) = 0x9090;	// NOP*4- last RGSC init check
 	*(WORD *)(0x471CF1+dwLoadOffset) = 0xC033;	// XOR eax, eax - RGSC initialization check
 	*(WORD *)(0x471CF8+dwLoadOffset) = 0xA390;	// NOP; MOV [], eax
 
 	*(DWORD *)(0x401815+dwLoadOffset) = 1;		// disable sleep
 
 	injectFunction (0x60BAC0, (DWORD)getSavefilePath); // replace getSavefilePath
+	pszPath = (char *)(0xFBF860+dwLoadOffset);	// char pszPathPersonal[128]; // "%USERPROFILE%\Documents\Rockstar Games\GTA IV\"
 
-        memset ((BYTE *)(0x451E19+dwLoadOffset), 0x90, 0x1BF);	// EFC20
+    memset ((BYTE *)(0x451E19+dwLoadOffset), 0x90, 0x1BF);	// EFC20
 	*(DWORD *)(0xA0D1E0+dwLoadOffset) = 0x90C301B0;	// mov al, 1; retn
 	*(DWORD *)(0xA0D200+dwLoadOffset) = 0x90C301B0;
 	*(DWORD *)(0xA0D210+dwLoadOffset) = 0x90C301B0;
 	*(DWORD *)(0xA0D240+dwLoadOffset) = 0x90C301B0;
 
-// B001C3 => 0xC301B090
-
 	trace ("Patching OK (1.0.3)\n");
 }
 
 void patch104 () {
-	dwGameVersion = 0x00010004;	// GTA IV 1.0.4 (patch 4)
-
-	DWORD oldProtect;
-	// enable write access to code and rdata
-	if (!VirtualProtect ((LPVOID)(dwLoadOffset+0x1000+0x400000), 0x8E4000, PAGE_EXECUTE_READWRITE, &oldProtect)) {
-		trace ("ERROR: unable to unprotect code seg\n");
-		return;
-	}
-
-	if (!VirtualProtect ((LPVOID)(dwLoadOffset+0x8e5000+0x400000), 0x1B1000, PAGE_READWRITE, &oldProtect)) 
-		trace ("ERROR: unable to unprotect .rdata seg\n");
+    dwGameVersion = IvPatch4;	// GTA IV 1.0.4 (patch 4)
 
 	// process patches
 	*(WORD *)(0x60C1A5+dwLoadOffset) = 0x9090; 	// NOP; NOP - save file CRC32 check
@@ -1083,16 +1104,17 @@ void patch104 () {
 	*(BYTE  *)(0x471502+dwLoadOffset) = 0x00;	// RETN - remove connect to the RGSC 
 	memset ((BYTE *)(0x471F00+dwLoadOffset), 0x90, 0x1B);
 	*(WORD  *)(0x471E8A+dwLoadOffset) = 0x9090;	// NOP; NOP - RGSC initialization check
-        *(DWORD *)(0x471F20+dwLoadOffset) = 0x90909090;	// NOP*4- last RGSC init check
-        *(WORD  *)(0x471F24+dwLoadOffset) = 0x9090;	// NOP*4- last RGSC init check 
+    *(DWORD *)(0x471F20+dwLoadOffset) = 0x90909090;	// NOP*4- last RGSC init check
+    *(WORD  *)(0x471F24+dwLoadOffset) = 0x9090;	// NOP*4- last RGSC init check 
 	*(WORD *)(0x471E91+dwLoadOffset) = 0xC033;	// XOR eax, eax - RGSC initialization check
 	*(WORD *)(0x471E98+dwLoadOffset) = 0xA390;	// NOP; MOV [], eax
 
 	*(DWORD *)(0x4017F5+dwLoadOffset) = 1;		// disable sleep
 
 	injectFunction (0x60BBD0, (DWORD)getSavefilePath); // replace getSavefilePath
+	pszPath = (char *)(0xFC4B00+dwLoadOffset);	// char pszPathPersonal[128]; // "%USERPROFILE%\Documents\Rockstar Games\GTA IV\"
 
-        memset ((BYTE *)(0x452129+dwLoadOffset), 0x90, 0x1BF);	// EFC20
+    memset ((BYTE *)(0x452129+dwLoadOffset), 0x90, 0x1BF);	// EFC20
 
 	*(DWORD *)(0xA0D9C0+dwLoadOffset) = 0x90C301B0;	// mov al, 1; retn
 	*(DWORD *)(0xA0D9E0+dwLoadOffset) = 0x90C301B0;
@@ -1103,17 +1125,7 @@ void patch104 () {
 }
 
 void patch105 () {
-	dwGameVersion = 0x00010005;	// GTA IV 1.0.0.4 (patch 5)
-
-	DWORD oldProtect;
-	// enable write access to code and rdata
-	if (!VirtualProtect ((LPVOID)(dwLoadOffset+0x1000+0x400000), 0x0915000, PAGE_EXECUTE_READWRITE, &oldProtect)) {
-		trace ("ERROR: unable to unprotect code seg\n");
-		return;
-	}
-
-	if (!VirtualProtect ((LPVOID)(dwLoadOffset+0x0916000+0x400000), 0x01AA000, PAGE_READWRITE, &oldProtect)) 
-		trace ("ERROR: unable to unprotect .rdata seg\n");
+	dwGameVersion = IvPatch5;	// GTA IV 1.0.0.4 (patch 5)
 
 	// process patches
 	*(BYTE *)(0x7B82A0+dwLoadOffset) = 0xC3;	// RETN - enable debugger in error menu (don't load WER.dll)
@@ -1147,7 +1159,7 @@ void patch105 () {
 	// savegames
 	*(WORD *)(0x6C31A5+dwLoadOffset) = 0x9090; 	// NOP; NOP - save file CRC32 check
 	injectFunction (0x6C2BD0, (DWORD)getSavefilePath); // replace getSavefilePath
-
+	pszPath = (char *)(0x12898B0+dwLoadOffset);	
 
 	*(DWORD *)(0xB3E190+dwLoadOffset) = 0x90C301B0;	// mov al, 1; retn
 	*(DWORD *)(0xB3E1B0+dwLoadOffset) = 0x90C301B0;
@@ -1157,55 +1169,166 @@ void patch105 () {
 	trace ("Patching OK (1.0.0.4 - update 5)\n");
 }
 
-void patch102 () {
-	dwGameVersion = 0x00010002;	// GTA IV 1.0.2 (patch 2)
-
-	DWORD oldProtect;
-	// enable write access to code and rdata
-	if (!VirtualProtect ((LPVOID)(dwLoadOffset+0x1000+0x400000), 0x8D7000, PAGE_EXECUTE_READWRITE, &oldProtect)) {
-		trace ("ERROR: unable to unprotect code seg\n");
-		return;
-	}
-	if (!VirtualProtect ((LPVOID)(dwLoadOffset+0x8D8000+0x400000), 0x19F000, PAGE_READWRITE, &oldProtect)) 
-		trace ("ERROR: unable to unprotect .rdata seg\n");
+void patch106 () {
+	dwGameVersion = IvPatch6;	// GTA IV 1.0.6.0 (patch 6)
 
 	// process patches
-	*(WORD *)(0x6086B5+dwLoadOffset) = 0x9090; 	// NOP; NOP - save file CRC32 check
-	*(BYTE *)(0x79F710+dwLoadOffset) = 0xC3;	// RETN - enable debugger in error menu (don't load WER.dll)
-	*(BYTE *)(0x7A0740+dwLoadOffset) = 0xC3;	// RETN - skip files.txt hash check
+	*(DWORD *)(0x401855+dwLoadOffset) = 1;		// disable sleep
+	*(BYTE  *)(0xD35310+dwLoadOffset) = 0xC3;	// RETN - enable debugger in error menu (don't load WER.dll)
+	*(DWORD *)(0x403F30+dwLoadOffset) = 0x900008C2;	// RETN 8 - certificates check
+	*(DWORD *)(0x40264D+dwLoadOffset) = 0x4AE9C033;	// xor eax, eax - address of the RGSC object
+	*(DWORD *)(0x402651+dwLoadOffset) = 0x90000002;	// jmp 40289E (skip RGSC connect and EFC checks)		
+	*(WORD *)(0x4028A3+dwLoadOffset) = 0xA390;	// NOP; MOV [g_rgsc], eax
+	memset ((BYTE *)(0x40290D+dwLoadOffset), 0x90, 0x2A);
+        *(DWORD *)(0x40293D+dwLoadOffset) = 0x90909090;	// NOP*4- last RGSC init check
+        *(WORD  *)(0x402941+dwLoadOffset) = 0x9090;	// NOP*2- last RGSC init check 
 
-	*(BYTE *)(0x46FA7D+dwLoadOffset) = 0xE9;	// JMP
-	*(DWORD *)(0x46FA7E+dwLoadOffset)= 0x16;	// jmp target
-	*(BYTE *)(0x4701C0+dwLoadOffset) = 0xC3;	// RETN - certificates check
-	*(BYTE *)(0x46F120+dwLoadOffset) = 0xC2;	// RETN - remove connect to the RGSC 
-	*(BYTE *)(0x46F121+dwLoadOffset) = 0x04;	// RETN - remove connect to the RGSC 
-	*(BYTE *)(0x46F122+dwLoadOffset) = 0x00;	// RETN - remove connect to the RGSC 
-	memset ((BYTE *)(0x46FB16+dwLoadOffset), 0x90, 0x1B);
-	*(WORD *)(0x46FAAA+dwLoadOffset) = 0x9090;	// NOP; NOP - RGSC initialization check
-        *(WORD *)(0x46FB36+dwLoadOffset) = 0x9090;	// NOP; NOP - last RGSC init check
-        *(DWORD *)(0x46FB38+dwLoadOffset) = 0x90909090;
-	*(WORD *)(0x46FAB1+dwLoadOffset) = 0xC033;	// XOR eax, eax - RGSC initialization check
-	*(WORD *)(0x46FAB8+dwLoadOffset) = 0xA390;	// NOP; MOV [], eax
+	// skip missing tests...
+	memset ((BYTE *)(0x402B32+dwLoadOffset), 0x90, 14);
+	memset ((BYTE *)(0x402D37+dwLoadOffset), 0x90, 14);
+	*(DWORD *)(0x403890+dwLoadOffset) = 0x90C3C033;	// xor eax, eax; retn
+	*(DWORD *)(0x404270+dwLoadOffset) = 0x90C3C033;	// xor eax, eax; retn
 
-	*(DWORD *)(0x401825+dwLoadOffset) = 1;		// disable sleep
+	// savegames
+	*(WORD *)(0x5B0505+dwLoadOffset) = 0x9090; 	// NOP; NOP - save file CRC32 check
+	injectFunction (0x5AFF30, (DWORD)getSavefilePath); // replace getSavefilePath
+	pszPath = (char *)(0x10F1100+dwLoadOffset);	
 
-	// replace getSavefilePath
-	injectFunction (0x6080E0, (DWORD)getSavefilePath);
+	*(DWORD *)(0xBABFB0+dwLoadOffset) = 0x90C301B0;	// mov al, 1; retn
+	*(DWORD *)(0xBABFD0+dwLoadOffset) = 0x90C301B0;
+	*(DWORD *)(0xBABFE0+dwLoadOffset) = 0x90C301B0;
+	*(DWORD *)(0xBAC010+dwLoadOffset) = 0x90C301B0;
 
-	trace ("Patching OK (1.0.2)\n");
+	trace ("Patching OK (1.0.6.0 - update 6)\n");
 }
 
-void patchRFG () {
-	dwGameVersion = 0;	// RFG. should I make some constant ?
-	DWORD	oldProtect;
-	// enable write access to code and rdata
-	if (!VirtualProtect ((LPVOID)(dwLoadOffset+0x1000+0x400000), 0x06CC000, PAGE_EXECUTE_READWRITE, &oldProtect)) {
-		trace ("ERROR: unable to unprotect code seg\n");
-		return;
-	}
+void patch106J () {
+	dwGameVersion = IvPatch6J;	// GTA IV 1.0.4.2 (patch 6)
 
-	if (!VirtualProtect ((LPVOID)(dwLoadOffset+0x6CD000+0x400000), 0xD2000, PAGE_READWRITE, &oldProtect)) 
-		trace ("ERROR: unable to unprotect .rdata seg\n");
+	// process patches
+	*(DWORD *)(0x401835+dwLoadOffset) = 1;		// disable sleep
+    *(BYTE  *)(0xD35180+dwLoadOffset) = 0xC3;	// RETN - enable debugger in error menu (don't load WER.dll)
+    *(DWORD *)(0x403F30+dwLoadOffset) = 0x900008C2;	// RETN 8 - certificates check
+    *(DWORD *)(0x40264D+dwLoadOffset) = 0x4AE9C033;	// xor eax, eax - address of the RGSC object
+    *(DWORD *)(0x402651+dwLoadOffset) = 0x90000002;	// jmp 40289E (skip RGSC connect and EFC checks)		
+    *(WORD *)(0x4028A3+dwLoadOffset) = 0xA390;	// NOP; MOV [g_rgsc], eax
+    memset ((BYTE *)(0x40290D+dwLoadOffset), 0x90, 0x2A);
+    *(DWORD *)(0x40293D+dwLoadOffset) = 0x90909090;	// NOP*4- last RGSC init check
+    *(WORD  *)(0x402941+dwLoadOffset) = 0x9090;	// NOP*2- last RGSC init check 
+
+    // skip missing tests...
+    memset ((BYTE *)(0x402B32+dwLoadOffset), 0x90, 14);
+    memset ((BYTE *)(0x402D37+dwLoadOffset), 0x90, 14);
+    *(DWORD *)(0x403890+dwLoadOffset) = 0x90C3C033;	// xor eax, eax; retn
+    *(DWORD *)(0x404270+dwLoadOffset) = 0x90C3C033;	// xor eax, eax; retn
+
+    // savegames
+    *(WORD *)(0x5B0215+dwLoadOffset) = 0x9090; 	// NOP; NOP - save file CRC32 check
+    injectFunction (0x5AFC40, (DWORD)getSavefilePath); // replace getSavefilePath
+    pszPath = (char *)(0x10F1100+dwLoadOffset);	
+
+    *(DWORD *)(0xBAFA10+dwLoadOffset) = 0x90C301B0;	// mov al, 1; retn
+    *(DWORD *)(0xBAFA30+dwLoadOffset) = 0x90C301B0;
+    *(DWORD *)(0xBAFA40+dwLoadOffset) = 0x90C301B0;
+    *(DWORD *)(0xBAFA70+dwLoadOffset) = 0x90C301B0;
+
+	trace ("Patching OK (1.0.6.0 - update 6)\n");
+}
+
+#pragma pack(push,1)
+struct Pair {
+    DWORD   dwHash;
+    DWORD   dwIndex;
+};
+
+struct pairArray {
+    Pair *  pData;
+    WORD    wCount;
+    WORD    wSize;
+};
+#pragma pack(pop)
+
+void * __cdecl getModelByHash (DWORD dwHash, DWORD * pdwIndex) {
+
+pairArray * pHashPairs = (pairArray *)(0xF2B064+dwLoadOffset);
+void *** pModelPointers = (void ***)(0x15FE870+dwLoadOffset);
+DWORD * pdwModelCount = (DWORD *)(0x15FE864+dwLoadOffset);
+int (__cdecl * cmpPair) (const void *, const void *) = (int (__cdecl *)(const void *, const void *))(0x9BAFE0+dwLoadOffset);
+
+    if (pHashPairs->wCount == 0)
+        return NULL;
+    Pair key;
+    key.dwHash = dwHash;
+    trace ("[getModelByHash] (#%08x) of %d\n", dwHash, pHashPairs->wCount);
+    Pair * r = (Pair *)bsearch (&key, pHashPairs->pData, pHashPairs->wCount, 8, cmpPair);
+    if (!r)
+        return NULL;
+    trace ("[getModeByHash] found (#%08x => %d)\n", dwHash, r->dwIndex);
+    if (r->dwIndex >= *pdwModelCount) {
+        trace ("[getModelByHash]: model index (%d) out of bounds (%d), hash = 0x%x\n", r->dwIndex, *pdwModelCount, dwHash);
+        return NULL;
+    }
+    if (pdwIndex)
+        *pdwIndex = r->dwIndex;
+    void * pmodel = (*pModelPointers)[r->dwIndex];
+    DWORD d = (DWORD)pmodel;
+    if (d == 0xDDDDDDDD || d == 0xCDCDCDCD) {
+        trace ("[getModelByHash]: #%08x => bad pointer 0x%x\n", dwHash, d);
+        return NULL;
+    }
+    return pmodel;
+}
+
+
+void patchEflc1 () {
+    dwGameVersion = EflcPatch1;	// EfLC 1.1.1.0 (patch 1)
+
+	// savegames
+	*(WORD *)(0x6DEFB5+dwLoadOffset) = 0x9090; 	// NOP; NOP - save file CRC32 check
+	injectFunction (0x6DE9E0, (DWORD)getSavefilePath); // replace getSavefilePath
+	pszPath = (char *)(0x10DF298+dwLoadOffset);	    // szSavegamePath[512]
+
+	trace ("Patching OK (EfLC 1.1.1.0 - update 6)\n");
+    return;
+
+	// process patches
+	*(DWORD *)(0x401835+dwLoadOffset) = 1;		// disable sleep
+	*(BYTE  *)(0x7CA680+dwLoadOffset) = 0xC3;	// RETN - enable debugger in error menu (don't load WER.dll)
+    *(DWORD *)(0x474C20+dwLoadOffset) = 0x900008C2;	// RETN 8 - certificates check
+    *(DWORD *)(0x47334D+dwLoadOffset) = 0x4AE9C033;	// xor eax, eax - address of the RGSC object
+    *(DWORD *)(0x473351+dwLoadOffset) = 0x90000002;	// jmp 40289E (skip RGSC connect and EFC checks)		
+    *(WORD *)(0x4735A3+dwLoadOffset) = 0xA390;	// NOP; MOV [g_rgsc], eax
+    memset ((BYTE *)(0x47360D+dwLoadOffset), 0x90, 0x2A);
+    *(DWORD *)(0x47363D+dwLoadOffset) = 0x90909090;	// NOP*4- last RGSC init check
+    *(WORD  *)(0x473641+dwLoadOffset) = 0x9090;	// NOP*2- last RGSC init check 
+
+	// skip missing tests...
+	memset ((BYTE *)(0x473832+dwLoadOffset), 0x90, 14);
+	memset ((BYTE *)(0x473A37+dwLoadOffset), 0x90, 14);
+	*(DWORD *)(0x474580+dwLoadOffset) = 0x90C3C033;	// xor eax, eax; retn
+	*(DWORD *)(0x474F60+dwLoadOffset) = 0x90C3C033;	// xor eax, eax; retn
+
+    // >> TEST
+	*(DWORD *)(0x474FD0+dwLoadOffset) = 0x90C3C033;	// xor eax, eax; retn
+    *(BYTE *)(0x7CAD20+dwLoadOffset) = 0xC3;
+    *(DWORD *)(0xD2CB1C+dwLoadOffset) = 0xC340C033; // xor eax, eax; inc eax; retn
+
+    *(WORD *)(0x7E1DF7+dwLoadOffset) = 0x9090;  // isInternetConnectionPresent 
+
+    // *(BYTE *)(0xBBBF70+dwLoadOffset) = 0xC3;
+
+	*(DWORD *)(0xC25490+dwLoadOffset) = 0x90C301B0;	// mov al, 1; retn
+	*(DWORD *)(0xC254B0+dwLoadOffset) = 0x90C301B0;
+	*(DWORD *)(0xC254F0+dwLoadOffset) = 0x90C301B0;
+	*(DWORD *)(0xC254F0+dwLoadOffset) = 0x90C301B0;
+
+    // injectFunction (0x9BCEC0, (DWORD)getModelByHash);
+
+}
+
+
+void patchRFG () {
+	dwGameVersion = RfgUnpatched;	// RedFaction:Guerilla
 
 	// disable savegame check
 	*(WORD*)(0x522A38+dwLoadOffset) = 0x9090;
@@ -1218,9 +1341,33 @@ void patchRFG () {
 void patchCode () {
 	// get load address of the exe
 	dwLoadOffset = (DWORD)GetModuleHandle (NULL);
-	trace ("GetModuleHandle returns %08x\n", dwLoadOffset);
-	dwLoadOffset -= 0x400000;	
+    trace ("GetModuleHandle returns %08x\n", dwLoadOffset);
 	
+    // Unprotect image - make .text and .rdata section writeable
+    BYTE * pImageBase = reinterpret_cast<BYTE *>(dwLoadOffset); 
+    PIMAGE_DOS_HEADER   pDosHeader = reinterpret_cast<PIMAGE_DOS_HEADER> (dwLoadOffset);
+    PIMAGE_NT_HEADERS   pNtHeader  = reinterpret_cast<PIMAGE_NT_HEADERS> (pImageBase+pDosHeader->e_lfanew);
+    PIMAGE_SECTION_HEADER pSection = IMAGE_FIRST_SECTION(pNtHeader);
+    // trace ("[EXE] NtHeader contains %d sections\n", pNtHeaders->FileHeader.NumberOfSections);
+
+    for (int iSection = 0; iSection < pNtHeader->FileHeader.NumberOfSections; ++iSection, ++pSection) {
+        char * pszSectionName = reinterpret_cast<char *>(pSection->Name);
+        if (!strcmp (pszSectionName, ".text") || !strcmp (pszSectionName, ".rdata")) {
+            DWORD dwPhysSize = (pSection->Misc.VirtualSize + 4095) & ~4095;    
+            trace ("[EXE] unprotecting section '%s': addr = 0x%08x, size = 0x%08x\n", pSection->Name, pSection->VirtualAddress, dwPhysSize);
+
+            DWORD	oldProtect;
+            DWORD   newProtect = (pSection->Characteristics & IMAGE_SCN_MEM_EXECUTE) ? PAGE_EXECUTE_READWRITE : PAGE_READWRITE;
+            if (!VirtualProtect (reinterpret_cast <VOID *>(dwLoadOffset+pSection->VirtualAddress), dwPhysSize, newProtect, &oldProtect)) {
+                trace ("[EXE] Virtual protect error\n");
+                ExitProcess (0);
+            }
+        }
+    }
+
+    dwLoadOffset -= 0x400000;	 
+    // ExitProcess (0);
+
 	// version check
 	DWORD signature = *(DWORD *)(0x608C34+dwLoadOffset);
 	if (signature == 0x831F7518)
@@ -1233,6 +1380,12 @@ void patchCode () {
 		patch104 ();
 	else if (signature == 0xf3385058)
 		patch105 ();
+	else if (signature == 0x00a42494)
+		patch106 ();
+    else if (signature == 0xda280f30)
+        patch106J ();
+    else if (signature == 0x0f14247c)
+        patchEflc1 ();
 	else if (signature == 0x108b1874)
 		patchRFG ();
 	else 
@@ -1251,7 +1404,7 @@ void loadPlugins (char * pszMask) {
 	char * p = strrchr (pszMask, '\\');
 	char * namePtr = pathName;
 	if (p) {
-		strcpy (pathName, pszMask);
+		strcpy_s (pathName, MAX_PATH, pszMask);
 		pathName[p-pszMask+1] = '\0';
 		namePtr = pathName + (p-pszMask+1);
 	}
@@ -1266,7 +1419,7 @@ void loadPlugins (char * pszMask) {
 			while (fd.cFileName[pos])
 				pos++;
 			DWORD type = *(DWORD *)(fd.cFileName+pos-4);
-			type |= 0x20202020;
+			type |= 0x20202020; // convert to lowercase
 			if (type == typeMask) {
 				strcpy (namePtr, fd.cFileName);
 				if (!LoadLibrary (pathName)) 
@@ -1278,15 +1431,16 @@ void loadPlugins (char * pszMask) {
 	} while (FindNextFile (asiFile, &fd));
 	FindClose (asiFile);
 }
-
+//=============================================================================
+// Entry Point 
 BOOL APIENTRY DllMain( HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved) {
 	switch (ul_reason_for_call) {
 	case DLL_PROCESS_ATTACH:
 #ifndef NO_TRACE
-		logfile = fopen ("xlive_trace.log", "at");
+		logfile = fopen ("xlive_trace.log", "at");  // TODO: move log to the User\Documents or something
 		if (logfile)
 			InitializeCriticalSection (&d_lock);
-		trace ("Log started (xliveless 0.98)\n");
+		trace ("Log started (xliveless 0.999b3)\n");
 #endif
 		patchCode ();
 		loadPlugins ("*.asi");
@@ -1301,7 +1455,7 @@ BOOL APIENTRY DllMain( HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpRese
 		if (logfile) {
 			EnterCriticalSection (&d_lock);
 			fflush (logfile);
-			fclose (logfile);
+			fclose (logfile);       
 			logfile = NULL;
 			LeaveCriticalSection (&d_lock);
 			DeleteCriticalSection (&d_lock);

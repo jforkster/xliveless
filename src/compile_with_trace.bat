@@ -1,1 +1,1 @@
-cl -LD -MT xlive.cpp xlive.def
+cl -Fexlive_d.dll -Oi -LD -D XLIVELESS_EXPORTS=1 -MT xliveless.cpp xlive.def

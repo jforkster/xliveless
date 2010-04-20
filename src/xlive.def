@@ -35,6 +35,7 @@ EXPORTS
   _XLivePBufferSetDWORD@12		@5021
   _XLiveGetUpdateInformation@4  	@5022
   _XLiveUpdateSystem@4  		@5024
+  _XLiveSetSponsorToken@8		@5026
   _XLivePreTranslateMessage@4  		@5030
   _XLiveSetDebugLevel@8 		@5031
   _XLiveProtectData@20  		@5034
@@ -112,6 +113,8 @@ EXPORTS
   _XLiveContentCreateEnumerator@16	@5360
   _XLiveContentRetrieveOffersByDate@24	@5361
   _XShowMarketplaceUI@20		@5365
+  _xlive_5367@20			@5367
+  _xlive_5372@24			@5372
   _XNetCreateKey@8  			@54 
   _XNetRegisterKey@8  			@55
   _XNetUnregisterKey@4  		@56

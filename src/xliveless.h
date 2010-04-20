@@ -1,18 +1,34 @@
-// XLiveLess plugin API
+#ifdef XLIVELESS_EXPORTS
+#define XLIVELESS_API extern "C" __declspec(dllexport)
+#else
+#define XLIVELESS_API extern "C" __declspec(dllimport)
+#endif
 
-extern "C" {
-	// game version 
-	__declspec(dllimport) DWORD dwGameVersion;
-	// Offset to the "real" loding address 
-	__declspec(dllimport) DWORD dwLoadOffset;
+#define XLIVELESS_VERSION   0x00010000  // 1.0.0
 
-	// for Delphi plugins (same as two variables above)
-	__declspec(dllimport) DWORD getGameVersion();
-	__declspec(dllimport) DWORD getLoadOffset ();
+enum GameVersion {
+    GvUnknown       = 0x00000000,     // unknown game
+    IvPatch1        = 0x00010001,      // GTA IV 1.0.1.0
+    IvPatch2        = 0x00010002,
+    IvPatch3        = 0x00010003,
+    IvPatch4        = 0x00010004,      // GTA IV 1.0.4.0
+    IvPatch5        = 0x00010005,      // GTA IV 1.0.0.4
+    IvPatch6        = 0x00010006,      // GTA IV 1.0.6.0
+    IvPatch6J       = 0x00010006,      // GTA IV 1.0.4.2
+    RfgUnpatched    = 0x00020000,   // Red Faction: Guerilla
+    EflcPatch1      = 0x00030001,    // EfLC 1.1.1.0
+};
 
-	// Print message to the log 
-	void trace(char * message, ...);
+// for C/C++ plugins
+XLIVELESS_API GameVersion dwGameVersion;  // game 
+XLIVELESS_API DWORD         dwLoadOffset;   // Offset to the "real" loding address 
 
-	// Replace game function at dwAddress with plugin function
-	void injectFunction (DWORD dwAddress, DWORD pfnReplacement);
-}
+// for Delphi plugins (same as two variables above)
+XLIVELESS_API GameVersion getGameVersion();
+XLIVELESS_API DWORD         getLoadOffset ();
+
+// Print message to the log 
+XLIVELESS_API void trace(char * message, ...);
+
+// Replace game function at dwAddress with plugin function (cast pointer to the function/method to DWORD)
+XLIVELESS_API void injectFunction (DWORD dwAddress, DWORD pfnReplacement);

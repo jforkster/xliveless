@@ -1,8 +1,9 @@
 XLiveLess - small replacement of the xlive.dll with no online support 
 
 Notes:
-  * run LaunchGTAIV.exe instead GTAIV.exe (to prevent "drunk" camera)
-
+  * run LaunchGTAIV.exe instead GTAIV.exe to prevent "drunk" camera
+  * Plugin saveToGameFolder not included in this beta version
+  
 Main features:
   * complete replacement of the xlive.dll (original dll isn't required)
   * all online functions are disabled (to prevent cheating in multiplayer)
@@ -11,7 +12,7 @@ Main features:
   * in-built asi-loader (no need to replace original files)
   * asi-loader searches for .asi files in the root game folder and .asi and .dll in the 'plugins' folder
 
-Additional features for GTA IV version 1.0.1.0-1.0.4.0 en, 1.0.0.4 (update 5):
+Additional features for GTA IV version 1.0.1.0-1.0.6.0, 1.0.4.2: 
   * removed savefile check (you can load save file made by any offline XLive user)
   * removed files.txt check (integrated replacement of FileCheckFix and MagicPatch)
   * restored access to the system debugger in the critical error menu (removed loading of WER.dll)
@@ -19,7 +20,11 @@ Additional features for GTA IV version 1.0.1.0-1.0.4.0 en, 1.0.0.4 (update 5):
   * disabled RGSC
   * moved 'savegames' folder (see below).
 
-Additional features for Red Faction: Guerilla:
+Additional features for EfLC 1.1.1.0
+  * moved 'savegames' folder (see below).
+  * removed savefile check
+
+Additional features for Red Faction: Guerrilla:
   * removed savefile check
 
 Installation:
@@ -34,6 +39,5 @@ Additional notes on savefiles:
 
 Plugin support:
   * Added plugin API (xliveless.h and xlive.lib)
-  * Added sample plugin that moves the 'savegames' folder into the game folder (saveToGameFolder.dll)
 
 Special thanks to Rick and Seemann.
