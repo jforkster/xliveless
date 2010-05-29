@@ -12,17 +12,13 @@ Main features:
   * in-built asi-loader (no need to replace original files)
   * asi-loader searches for .asi files in the root game folder and .asi and .dll in the 'plugins' folder
 
-Additional features for GTA IV version 1.0.1.0-1.0.6.0, 1.0.4.2: 
+Additional features for GTA IV version 1.0.1.0-1.0.7.0, 1.0.4.2, EfCL 1.1.1.0-1.1.2.0: 
   * removed savefile check (you can load save file made by any offline XLive user)
   * removed files.txt check (integrated replacement of FileCheckFix and MagicPatch)
   * restored access to the system debugger in the critical error menu (removed loading of WER.dll)
   * enabled write access to memory in code and .rdata segments (no need to call VirtualProtect from a .asi)
-  * disabled RGSC
+  * disabled RGSC (since update 6, RGSC moved to the paul.dll)
   * moved 'savegames' folder (see below).
-
-Additional features for EfLC 1.1.1.0
-  * moved 'savegames' folder (see below).
-  * removed savefile check
 
 Additional features for Red Faction: Guerrilla:
   * removed savefile check

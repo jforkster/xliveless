@@ -1232,53 +1232,41 @@ void patch106J () {
     *(DWORD *)(0xBAFA40+dwLoadOffset) = 0x90C301B0;
     *(DWORD *)(0xBAFA70+dwLoadOffset) = 0x90C301B0;
 
-	trace ("Patching OK (1.0.6.0 - update 6)\n");
+	trace ("Patching OK (1.0.4.2 - update 6)\n");
 }
 
-#pragma pack(push,1)
-struct Pair {
-    DWORD   dwHash;
-    DWORD   dwIndex;
-};
+void patch107 () {
+	dwGameVersion = IvPatch7;	// GTA IV 1.0.7.0 (patch 7)
 
-struct pairArray {
-    Pair *  pData;
-    WORD    wCount;
-    WORD    wSize;
-};
-#pragma pack(pop)
+	// process patches
+	*(DWORD *)(0x401835+dwLoadOffset) = 1;		    // disable sleep
+	*(BYTE  *)(0xD356D0+dwLoadOffset) = 0xC3;	    // RETN - enable debugger in error menu (don't load WER.dll)
+	*(DWORD *)(0x403F10+dwLoadOffset) = 0x900008C2;	// RETN 8 - certificates check
+	*(DWORD *)(0x40262D+dwLoadOffset) = 0x4AE9C033;	// xor eax, eax - address of the RGSC object
+	*(DWORD *)(0x402631+dwLoadOffset) = 0x90000002;	// jmp 40289E (skip RGSC connect and EFC checks)		
+	*(WORD  *)(0x402883+dwLoadOffset) = 0xA390;	    // NOP; MOV [g_rgsc], eax
+	memset ((BYTE *)(0x4028ED+dwLoadOffset), 0x90, 0x2A);
+    *(DWORD *)(0x40291D+dwLoadOffset) = 0x90909090;	// NOP*4- last RGSC init check
+    *(WORD  *)(0x402921+dwLoadOffset) = 0x9090;	    // NOP*2- last RGSC init check 
 
-void * __cdecl getModelByHash (DWORD dwHash, DWORD * pdwIndex) {
+	// skip missing tests...
+	memset ((BYTE *)(0x402B12+dwLoadOffset), 0x90, 14);
+	memset ((BYTE *)(0x402D17+dwLoadOffset), 0x90, 14);
+	*(DWORD *)(0x403870+dwLoadOffset) = 0x90C3C033;	// xor eax, eax; retn
+	*(DWORD *)(0x404250+dwLoadOffset) = 0x90C3C033;	// xor eax, eax; retn
 
-pairArray * pHashPairs = (pairArray *)(0xF2B064+dwLoadOffset);
-void *** pModelPointers = (void ***)(0x15FE870+dwLoadOffset);
-DWORD * pdwModelCount = (DWORD *)(0x15FE864+dwLoadOffset);
-int (__cdecl * cmpPair) (const void *, const void *) = (int (__cdecl *)(const void *, const void *))(0x9BAFE0+dwLoadOffset);
+	// savegames
+	*(WORD *)(0x5B06E5+dwLoadOffset) = 0x9090; 	// NOP; NOP - save file CRC32 check
+	injectFunction (0x5B0110, (DWORD)getSavefilePath); // replace getSavefilePath
+	pszPath = (char *)(0x10F1DA0+dwLoadOffset);	
 
-    if (pHashPairs->wCount == 0)
-        return NULL;
-    Pair key;
-    key.dwHash = dwHash;
-    trace ("[getModelByHash] (#%08x) of %d\n", dwHash, pHashPairs->wCount);
-    Pair * r = (Pair *)bsearch (&key, pHashPairs->pData, pHashPairs->wCount, 8, cmpPair);
-    if (!r)
-        return NULL;
-    trace ("[getModeByHash] found (#%08x => %d)\n", dwHash, r->dwIndex);
-    if (r->dwIndex >= *pdwModelCount) {
-        trace ("[getModelByHash]: model index (%d) out of bounds (%d), hash = 0x%x\n", r->dwIndex, *pdwModelCount, dwHash);
-        return NULL;
-    }
-    if (pdwIndex)
-        *pdwIndex = r->dwIndex;
-    void * pmodel = (*pModelPointers)[r->dwIndex];
-    DWORD d = (DWORD)pmodel;
-    if (d == 0xDDDDDDDD || d == 0xCDCDCDCD) {
-        trace ("[getModelByHash]: #%08x => bad pointer 0x%x\n", dwHash, d);
-        return NULL;
-    }
-    return pmodel;
+	*(DWORD *)(0xBAC160+dwLoadOffset) = 0x90C301B0;	// mov al, 1; retn
+	*(DWORD *)(0xBAC180+dwLoadOffset) = 0x90C301B0;
+	*(DWORD *)(0xBAC190+dwLoadOffset) = 0x90C301B0;
+	*(DWORD *)(0xBAC1C0+dwLoadOffset) = 0x90C301B0;
+
+	trace ("Patching OK (1.0.7.0 - update 7)\n");
 }
-
 
 void patchEflc1 () {
     dwGameVersion = EflcPatch1;	// EfLC 1.1.1.0 (patch 1)
@@ -1288,42 +1276,79 @@ void patchEflc1 () {
 	injectFunction (0x6DE9E0, (DWORD)getSavefilePath); // replace getSavefilePath
 	pszPath = (char *)(0x10DF298+dwLoadOffset);	    // szSavegamePath[512]
 
-	trace ("Patching OK (EfLC 1.1.1.0 - update 6)\n");
-    return;
-
 	// process patches
 	*(DWORD *)(0x401835+dwLoadOffset) = 1;		// disable sleep
 	*(BYTE  *)(0x7CA680+dwLoadOffset) = 0xC3;	// RETN - enable debugger in error menu (don't load WER.dll)
-    *(DWORD *)(0x474C20+dwLoadOffset) = 0x900008C2;	// RETN 8 - certificates check
+
+    *(DWORD *)(0x474C20+dwLoadOffset) = 0x900008C2;	// RETN 8 - certificates check  
     *(DWORD *)(0x47334D+dwLoadOffset) = 0x4AE9C033;	// xor eax, eax - address of the RGSC object
     *(DWORD *)(0x473351+dwLoadOffset) = 0x90000002;	// jmp 40289E (skip RGSC connect and EFC checks)		
     *(WORD *)(0x4735A3+dwLoadOffset) = 0xA390;	// NOP; MOV [g_rgsc], eax
-    memset ((BYTE *)(0x47360D+dwLoadOffset), 0x90, 0x2A);
+    memset ((BYTE *)(0x47360D+dwLoadOffset), 0x90, 0x2A);   // data integrity checks
     *(DWORD *)(0x47363D+dwLoadOffset) = 0x90909090;	// NOP*4- last RGSC init check
     *(WORD  *)(0x473641+dwLoadOffset) = 0x9090;	// NOP*2- last RGSC init check 
 
 	// skip missing tests...
 	memset ((BYTE *)(0x473832+dwLoadOffset), 0x90, 14);
-	memset ((BYTE *)(0x473A37+dwLoadOffset), 0x90, 14);
+	memset ((BYTE *)(0x473A27+dwLoadOffset), 0x90, 14);
+    memset ((BYTE *)(0x49412C+dwLoadOffset), 0x90, 24);
 	*(DWORD *)(0x474580+dwLoadOffset) = 0x90C3C033;	// xor eax, eax; retn
 	*(DWORD *)(0x474F60+dwLoadOffset) = 0x90C3C033;	// xor eax, eax; retn
 
     // >> TEST
 	*(DWORD *)(0x474FD0+dwLoadOffset) = 0x90C3C033;	// xor eax, eax; retn
     *(BYTE *)(0x7CAD20+dwLoadOffset) = 0xC3;
-    *(DWORD *)(0xD2CB1C+dwLoadOffset) = 0xC340C033; // xor eax, eax; inc eax; retn
+    // *(DWORD *)(0xD2CB1C+dwLoadOffset) = 0xC340C033; // xor eax, eax; inc eax; retn - DFA_init => TODO: move to noSDFA.dll
+    // *(WORD *)(0x7E1DF7+dwLoadOffset) = 0x9090;  // isInternetConnectionPresent 
 
-    *(WORD *)(0x7E1DF7+dwLoadOffset) = 0x9090;  // isInternetConnectionPresent 
-
-    // *(BYTE *)(0xBBBF70+dwLoadOffset) = 0xC3;
-
+    // fix messed sequences
 	*(DWORD *)(0xC25490+dwLoadOffset) = 0x90C301B0;	// mov al, 1; retn
 	*(DWORD *)(0xC254B0+dwLoadOffset) = 0x90C301B0;
-	*(DWORD *)(0xC254F0+dwLoadOffset) = 0x90C301B0;
+	*(DWORD *)(0xC254C0+dwLoadOffset) = 0x90C301B0;
 	*(DWORD *)(0xC254F0+dwLoadOffset) = 0x90C301B0;
 
+	trace ("Patching OK (EfLC 1.1.1.0 - update 6)\n");
+    return;
+    
+    // *(BYTE *)(0xBBBF70+dwLoadOffset) = 0xC3; // startContentEnumerateThread
     // injectFunction (0x9BCEC0, (DWORD)getModelByHash);
+}
 
+void patchEflc2 () {
+    dwGameVersion = EflcPatch2;	// EfLC 1.1.2.0 (patch 2)
+
+	// process patches
+	*(DWORD *)(0x401855+dwLoadOffset) = 1;		// disable sleep
+	*(BYTE  *)(0x7CA700+dwLoadOffset) = 0xC3;	// RETN - enable debugger in error menu (don't load WER.dll)
+    *(DWORD *)(0x474800+dwLoadOffset) = 0x900008C2;	// RETN 8 - certificates check  
+    *(DWORD *)(0x472F1D+dwLoadOffset) = 0x4AE9C033;	// xor eax, eax - address of the RGSC object
+    *(DWORD *)(0x472F21+dwLoadOffset) = 0x90000002;	// jmp 40289E (skip RGSC connect and EFC checks)		
+    *(WORD  *)(0x473173+dwLoadOffset) = 0xA390;	// NOP; MOV [g_rgsc], eax
+    memset ((BYTE *)(0x4731DD+dwLoadOffset), 0x90, 0x2A);   // data integrity checks
+    *(DWORD *)(0x47320D+dwLoadOffset) = 0x90909090;	// NOP*4- last RGSC init check
+    *(WORD  *)(0x473211+dwLoadOffset) = 0x9090;	// NOP*2- last RGSC init check 
+
+	// skip missing tests...
+	*(DWORD *)(0x474160+dwLoadOffset) = 0x90C3C033;	// xor eax, eax; retn
+	*(DWORD *)(0x474B40+dwLoadOffset) = 0x90C3C033;	// xor eax, eax; retn
+	memset ((BYTE *)(0x473402+dwLoadOffset), 0x90, 14);
+	memset ((BYTE *)(0x473607+dwLoadOffset), 0x90, 14);
+    memset ((BYTE *)(0x493D4C+dwLoadOffset), 0x90, 24);
+
+	// savegames
+	*(WORD *)(0x6DF085+dwLoadOffset) = 0x9090; 	// NOP; NOP - save file CRC32 check
+	injectFunction (0x6DEAB0, (DWORD)getSavefilePath); // replace getSavefilePath
+	pszPath = (char *)(0x10562C8+dwLoadOffset);	    // szSavegamePath[512]
+
+    // fix messed sequences
+	*(DWORD *)(0xC1AD20+dwLoadOffset) = 0x90C301B0;	// mov al, 1; retn
+	*(DWORD *)(0xC1AD40+dwLoadOffset) = 0x90C301B0;
+	*(DWORD *)(0xC1AD50+dwLoadOffset) = 0x90C301B0;
+	*(DWORD *)(0xC1AD80+dwLoadOffset) = 0x90C301B0;
+
+	trace ("Patching OK (EfLC 1.1.2.0 - update 7)\n");
+    return;
+   
 }
 
 
@@ -1384,8 +1409,12 @@ void patchCode () {
 		patch106 ();
     else if (signature == 0xda280f30)
         patch106J ();
+    else if (signature == 0x1006e857) 
+        patch107 ();
     else if (signature == 0x0f14247c)
         patchEflc1 ();
+    else if (signature == 0x0d5c0ff3) 
+        patchEflc2 ();
 	else if (signature == 0x108b1874)
 		patchRFG ();
 	else 
@@ -1440,7 +1469,7 @@ BOOL APIENTRY DllMain( HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpRese
 		logfile = fopen ("xlive_trace.log", "at");  // TODO: move log to the User\Documents or something
 		if (logfile)
 			InitializeCriticalSection (&d_lock);
-		trace ("Log started (xliveless 0.999b3)\n");
+		trace ("Log started (xliveless 0.999b7)\n");
 #endif
 		patchCode ();
 		loadPlugins ("*.asi");
