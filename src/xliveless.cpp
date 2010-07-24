@@ -1314,6 +1314,50 @@ void patchEflc1 () {
     // injectFunction (0x9BCEC0, (DWORD)getModelByHash);
 }
 
+void patchEflc1R () {
+    dwGameVersion = EflcPatch1R;  // EfLC 1.1.0.1 (patch 1 rus)
+
+    // savegames
+    *(WORD *)(0x6DEB45+dwLoadOffset) = 0x9090;   // NOP; NOP - save file CRC32 check
+    injectFunction (0x6DE570, (DWORD)getSavefilePath); // replace getSavefilePath
+    pszPath = (char *)(0x1055AA8+dwLoadOffset);      // szSavegamePath[512]
+
+    // process patches
+    *(DWORD *)(0x401835+dwLoadOffset) = 1;    // disable sleep
+    *(BYTE  *)(0x7CA310+dwLoadOffset) = 0xC3;  // RETN - enable debugger in error menu (don't load WER.dll)
+
+    *(DWORD *)(0x474660+dwLoadOffset) = 0x900008C2;  // RETN 8 - certificates check  
+    *(DWORD *)(0x472D7D+dwLoadOffset) = 0x4AE9C033;  // xor eax, eax - address of the RGSC object
+    *(DWORD *)(0x472D81+dwLoadOffset) = 0x90000002;  // jmp 40289E (skip RGSC connect and EFC checks)    
+    *(WORD *)(0x472FD3+dwLoadOffset) = 0xA390;  // NOP; MOV [g_rgsc], eax
+    memset ((BYTE *)(0x47303D+dwLoadOffset), 0x90, 0x2A);   // data integrity checks
+    *(DWORD *)(0x47306D+dwLoadOffset) = 0x90909090;  // NOP*4- last RGSC init check
+    *(WORD  *)(0x473071+dwLoadOffset) = 0x9090;  // NOP*2- last RGSC init check 
+
+    // skip missing tests...
+    memset ((BYTE *)(0x473262+dwLoadOffset), 0x90, 14);
+    memset ((BYTE *)(0x473467+dwLoadOffset), 0x90, 14);
+    memset ((BYTE *)(0x493B8C+dwLoadOffset), 0x90, 24);
+    *(DWORD *)(0x473FC0+dwLoadOffset) = 0x90C3C033;  // xor eax, eax; retn
+    *(DWORD *)(0x4749A0+dwLoadOffset) = 0x90C3C033;  // xor eax, eax; retn
+
+    // >> TEST
+    *(DWORD *)(0x474A10+dwLoadOffset) = 0x90C3C033;  // xor eax, eax; retn
+    *(BYTE *)(0x7FE170+dwLoadOffset) = 0xC3;
+    // *(DWORD *)(0xD2CB1C+dwLoadOffset) = 0xC340C033; // xor eax, eax; inc eax; retn - DFA_init => TODO: move to noSDFA.dll
+    // *(WORD *)(0x7E1DF7+dwLoadOffset) = 0x9090;  // isInternetConnectionPresent 
+
+    // fix messed sequences
+    *(DWORD *)(0xC1C8E0+dwLoadOffset) = 0x90C301B0;  // mov al, 1; retn
+    *(DWORD *)(0xC1C900+dwLoadOffset) = 0x90C301B0;
+    *(DWORD *)(0xC1C910+dwLoadOffset) = 0x90C301B0;
+    *(DWORD *)(0xC1C940+dwLoadOffset) = 0x90C301B0;
+
+    trace ("Patching OK (EfLC 1.1.0.1 - update 7)\n");
+    return;
+}
+
+
 void patchEflc2 () {
     dwGameVersion = EflcPatch2;	// EfLC 1.1.2.0 (patch 2)
 
@@ -1347,8 +1391,7 @@ void patchEflc2 () {
 	*(DWORD *)(0xC1AD80+dwLoadOffset) = 0x90C301B0;
 
 	trace ("Patching OK (EfLC 1.1.2.0 - update 7)\n");
-    return;
-   
+    return;   
 }
 
 
@@ -1415,6 +1458,8 @@ void patchCode () {
         patchEflc1 ();
     else if (signature == 0x0d5c0ff3) 
         patchEflc2 ();
+    else if (signature == 0x41110ff3)
+        patchEflc1R ();
 	else if (signature == 0x108b1874)
 		patchRFG ();
 	else 
@@ -1494,4 +1539,5 @@ BOOL APIENTRY DllMain( HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpRese
 	}
     return TRUE;
 }
+
 

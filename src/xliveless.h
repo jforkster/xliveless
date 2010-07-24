@@ -14,10 +14,11 @@ enum GameVersion {
     IvPatch4        = 0x00010004,   // GTA IV 1.0.4.0
     IvPatch5        = 0x00010005,   // GTA IV 1.0.0.4
     IvPatch6        = 0x00010006,   // GTA IV 1.0.6.0
-    IvPatch6J       = 0x00010006,   // GTA IV 1.0.4.2
+    IvPatch6J       = 0x4A010006,   // GTA IV 1.0.4.2
     IvPatch7        = 0x00010007,   // GTA IV 1.0.7.0
     RfgUnpatched    = 0x00020000,   // Red Faction: Guerilla
     EflcPatch1      = 0x00030001,   // EfLC 1.1.1.0
+    EflcPatch1R     = 0x52030001,   // RfLC 1.1.0.1 (R)
     EflcPatch2      = 0x00030001,   // EfLC 1.1.2.0
 };
 
