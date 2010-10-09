@@ -153,6 +153,11 @@ extern "C"  int __stdcall XWSAGetLastError () {
 	return WSAENETDOWN; // 0 ?
 }
 
+// #37: XSocketHTONL
+extern "C"  DWORD __stdcall XSocketHTONL (DWORD n) { 
+	return ((n&0xFF000000) >> 24)|((n & 0x00FF0000) >> 8)|((n&0x0000FF00) << 8)|((n & 0x000000FF) << 24);
+}
+
 // #38: XSocketNTOHS
 extern "C"  WORD __stdcall XSocketNTOHS (WORD n) {	
 	return ((n&0xFF00) >> 8)|((n&0xFF) << 8);
@@ -161,6 +166,11 @@ extern "C"  WORD __stdcall XSocketNTOHS (WORD n) {
 // #39: XSocketNTOHL
 extern "C"  DWORD __stdcall XSocketNTOHL (DWORD n) { 
 	return ((n&0xFF000000) >> 24)|((n & 0x00FF0000) >> 8)|((n&0x0000FF00) << 8)|((n & 0x000000FF) << 24);
+}
+
+// #40: XSocketHTONS 
+extern "C"  WORD __stdcall XSocketHTONS (WORD n) {	
+	return ((n&0xFF00) >> 8)|((n&0xFF) << 8);
 }
 
 // #51: XNetStartup
@@ -173,6 +183,13 @@ extern "C"  int __stdcall XNetStartup (void *) { // XNetStartup(XNetStartupParam
 extern "C"  int __stdcall XNetCleanup () { 
 	trace ("xlive_52: XNetCleanup\n");
 	return 0;
+}
+
+// #53: XNetRandom
+extern "C" int __stdcall XNetRandom (BYTE * pb, DWORD cb) {
+    trace ("xlive_53: XNetRandom (..., %d)\n", cb);
+    if (cb) for (DWORD i = 0; i < cb; i++) pb[i] = static_cast<BYTE>(rand ());
+    return 0;
 }
 
 // #54: XNetCreateKey
@@ -223,6 +240,18 @@ extern "C"  int __stdcall XNetGetConnectStatus (DWORD) {
 	return 0;	
 }
 
+// #67: XNetDnsLookup
+extern "C" int __stdcall XNetDnsLookup (const char * pszHost, DWORD hEvent, void ** ppxndns) {
+    if (ppxndns)
+        *ppxndns = NULL;
+    return 1;   // ERROR
+}
+
+// #68: XNetDnsRelease 
+extern "C" int __stdcall XNetDnsRelease (void * pxndns) {
+    return 0;
+}
+
 // #69: XNetQosListen
 extern "C"  DWORD __stdcall XNetQosListen (DWORD, DWORD, DWORD, DWORD, DWORD) { 
 	return 0; 
@@ -252,6 +281,11 @@ extern "C"  DWORD __stdcall XNetGetTitleXnAddr (DWORD * pAddr) {
 // #75: XNetGetEthernetLinkStatus
 extern "C"  DWORD __stdcall XNetGetEthernetLinkStatus () { 
 	return 1; 
+}
+
+// #78: XNetGetOpt
+extern "C" DWORD __stdcall XNetGetOpt (DWORD dwOptId, BYTE * pValue, DWORD * pdwValueSize) {
+    return WSAEINVAL;
 }
 
 // #84: XNetSetSystemLinkPort
@@ -322,6 +356,15 @@ extern "C"  int __stdcall XLiveOnCreateDevice (DWORD, DWORD) {
 	return 0;
 }
 
+extern "C" HRESULT __stdcall XLiveOnDestroyDevice () {
+    return S_OK;
+}
+
+// #5006: XShowMessagesUI
+extern "C" int __stdcall XShowMessagesUI (DWORD dwUserIndex) {
+    return 1;   // ERROR_NOT_LOGGED_ON
+}
+
 // #5007: XLiveOnResetDevice
 extern "C"  int __stdcall XLiveOnResetDevice (DWORD) {
 	trace ("XLiveOnResetDevice\n");
@@ -357,6 +400,21 @@ extern "C"  int __stdcall XLivePreTranslateMessage (DWORD) {
 extern "C" int __stdcall XLiveSetDebugLevel (DWORD xdlLevel, DWORD * pxdlOldLevel) { 
 	trace ("XLiveSetDebugLevel (%d)\n", xdlLevel);
 	return 0;
+}
+
+// #5208: XShowGameInviteUI
+extern "C" int __stdcall XShowGameInviteUI (DWORD dwUserIndex, void * pXuidRecipients, DWORD cRecipients, LPCWSTR pszText) {
+    return 1; // ERROR_NOT_LOGGED_ON
+}
+
+// #5209: XShowMessageComposeUI
+extern "C" int __stdcall XShowMessageComposeUI (DWORD dwUserIndex, void * pXuidRecepients, DWORD cRecipients, void * wszText) {
+    return 1;   // ERROR_NOT_LOGGED_ON
+}
+
+// #5210: XShowFriendRequestUI
+extern "C" int __stdcall XShowFriendRequestUI (DWORD dwUserIndex, DWORD xuidUser1, DWORD xuidUser2) {
+    return 1;
 }
 
 // #5214: XShowPlayerReviewUI
@@ -402,7 +460,12 @@ extern "C"  int __stdcall XEnumerate (HANDLE hEnum, void * pvBuffer, DWORD cbBuf
 //        memset (pvBuffer, 0, cbBuffer);
 	if (pcItemsReturned)
 		*pcItemsReturned = 0;
-	return 0;	// some error ? 
+	return ERROR_NO_MORE_FILES;	// some error ? 
+}
+
+// #5259: XLiveSignin
+extern "C" HRESULT __stdcall XLiveSignin (PWSTR pszLiveIdName, PWSTR pszLiveIdPassword, DWORD dwFlags, void * pOverlapped) {
+    return S_OK;
 }
 
 // #5260: XShowSigninUI
@@ -474,6 +537,11 @@ extern "C"  HANDLE __stdcall XNotifyCreateListener (DWORD l, DWORD h) {
 	return (HANDLE)1; // any non-zero value. (zero treated as fatal error)
 }
 
+// #5271: XShowPlayersUI
+extern "C" int __stdcall XShowPlayersUI (DWORD dwUserIndex) {
+    return 1;
+}
+
 // #5273: XUserReadGamerpictureByKey
 extern "C" int __stdcall XUserReadGamerpictureByKey (DWORD, DWORD, DWORD, DWORD, DWORD, DWORD) { 
 	trace ("XUserReadGamerpictureByKey\n");
@@ -531,6 +599,14 @@ extern "C"  DWORD __stdcall XUserCreateStatsEnumeratorByRank (DWORD dwTitleId, D
         *pcbBuffer = 0;
 	*phEnum = INVALID_HANDLE_VALUE;
 	return 1;
+}
+
+extern "C" DWORD __stdcall XUserCreateStatsEnumeratorByRating (DWORD dwTitleId, LONGLONG, DWORD, DWORD, void *, DWORD * pcbBuffer, PHANDLE phEnum) {
+    trace ("XUserCreateStatsEnumeratorByRating\n");
+    if (pcbBuffer)
+        *pcbBuffer = 0;
+    *phEnum = INVALID_HANDLE_VALUE;
+    return 1;
 }
 
 // #5286: XUserCreateStatsEnumeratorByXuid
@@ -638,6 +714,22 @@ extern "C"  int __stdcall XSessionStart (DWORD, DWORD, DWORD) {
 extern "C"  DWORD __stdcall XSessionSearchEx (DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD) { 
 	trace ("XSessionSearchEx\n");
 	return 0; 
+}
+
+// #5320: XSessionSearchByID
+extern "C" DWORD __stdcall XSessionSearchByID (DWORD xnkid1, DWORD xnkid2, DWORD, DWORD * pcbResultsBuffer, void *, void * pxOverlapped) {
+    trace ("XSessionSearchByID\n");
+    if (pcbResultsBuffer)
+        *pcbResultsBuffer = 0;
+    return 0;
+}
+
+// #5321: XSessionSearch
+extern "C" DWORD __stdcall XSessionSearch (DWORD, DWORD, DWORD, WORD, WORD, void *, void *, DWORD * pcbResultsBuffer, void *, void * pxOverlapped) {
+    trace ("XSessionSearch\n");
+    if (pcbResultsBuffer)
+        *pcbResultsBuffer = 0;
+    return 0;
 }
 
 // #5322: XSessionModify
@@ -806,7 +898,7 @@ extern "C" DWORD __stdcall XLiveContentCreateEnumerator (DWORD, void *, DWORD *p
 	trace ("XLiveContentCreateEnumerator\n");
 	if (phContent)
 		*phContent = INVALID_HANDLE_VALUE;
-	return 0;
+	return 1;   // error
 }
 
 // #5361: XLiveContentRetrieveOffersByDate
@@ -954,6 +1046,22 @@ extern "C"  DWORD __stdcall XLiveProtectData (BYTE * pInBuffer, DWORD dwInDataSi
 	return 0;
 }
 
+// #5342: XSessionModifySkill
+extern "C" DWORD __stdcall XSessionModifySkill (HANDLE, DWORD, void * rgXuid, void * pOverlapped) {
+    trace ("XSessionModifySkill\n");
+    return 0;
+}
+
+// #5348: XLiveProtectedCreateFile 
+extern "C" HRESULT __stdcall XLiveProtectedCreateFile (HANDLE hContentAccess, void * pvReserved, PCWSTR pszFilePath, 
+    DWORD dwDesiredAccess, DWORD dwShareMode, SECURITY_ATTRIBUTES * pSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE * phModule) {
+        
+        HANDLE h = INVALID_HANDLE_VALUE; // CreateFileW (pszFilePath, dwDesiredAccess, dwShareMode, pSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, NULL);
+        if (phModule)
+            *phModule = h;
+        // return h != INVALID_HANDLE_VALUE ? S_OK : 1;    // error code
+        return 1;
+}
 // #5367
 extern "C" DWORD __stdcall xlive_5367 (HANDLE, DWORD, DWORD, BYTE *, DWORD) {
     trace  ("xlive_5367\n");
@@ -1405,6 +1513,13 @@ void patchRFG () {
 	trace ("Patching OK (RF:G)\n");
 }
 
+void patchDR2 () {
+    dwGameVersion = DR2Unpatched;   // Dead Rising 2
+
+    *(WORD *)(0x8D838A+dwLoadOffset) = 0x5EEB;
+    *(DWORD *)(0x8D9D60+dwLoadOffset) = 0x90C3C033;
+    trace ("Patching OK (Dead Rising 2)\n");
+}
 
 void patchCode () {
 	// get load address of the exe
@@ -1462,6 +1577,8 @@ void patchCode () {
         patchEflc1R ();
 	else if (signature == 0x108b1874)
 		patchRFG ();
+    else if (signature == 0x1B10044)
+        patchDR2 ();
 	else 
 		trace ("Unknown game version, skipping patches (signature = 0x%08x)\n", signature);
 }
@@ -1477,10 +1594,11 @@ void loadPlugins (char * pszMask) {
 	char pathName[MAX_PATH];	// module name buffer
 	char * p = strrchr (pszMask, '\\');
 	char * namePtr = pathName;
+    DWORD nameLen = p-pszMask+1;
 	if (p) {
 		strcpy_s (pathName, MAX_PATH, pszMask);
-		pathName[p-pszMask+1] = '\0';
-		namePtr = pathName + (p-pszMask+1);
+		pathName[nameLen] = '\0';
+		namePtr = pathName + nameLen;
 	}
 
 
@@ -1495,7 +1613,7 @@ void loadPlugins (char * pszMask) {
 			DWORD type = *(DWORD *)(fd.cFileName+pos-4);
 			type |= 0x20202020; // convert to lowercase
 			if (type == typeMask) {
-				strcpy (namePtr, fd.cFileName);
+				strcpy_s (namePtr, MAX_PATH-nameLen, fd.cFileName);
 				if (!LoadLibrary (pathName)) 
 					trace ("Error loading library %d\n", GetLastError ());
 				trace ("plugin loader: loaded '%s'\n", pathName);
@@ -1514,7 +1632,7 @@ BOOL APIENTRY DllMain( HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpRese
 		logfile = fopen ("xlive_trace.log", "at");  // TODO: move log to the User\Documents or something
 		if (logfile)
 			InitializeCriticalSection (&d_lock);
-		trace ("Log started (xliveless 0.999b7)\n");
+		trace ("Log started (xliveless 1.0a3)\n");
 #endif
 		patchCode ();
 		loadPlugins ("*.asi");

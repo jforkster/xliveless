@@ -15,8 +15,10 @@ EXPORTS
   _XSocketInet_Addr@4  			@26
   _XWSAGetLastError@0  			@27
   _XCreateSocket@12  			@3
+  _XSocketHTONL@4  			@37
   _XSocketNTOHS@4  			@38
   _XSocketNTOHL@4  			@39
+  _XSocketHTONS@4  			@40
   _XSockeClose@4  			@4
   _XCustomGetLastActionPress@12 	@473
   _XSocketShutdown@8  			@5
@@ -25,6 +27,7 @@ EXPORTS
   _XLiveRender@0  			@5002
   _XLiveUninitialize@0  		@5003
   _XLiveOnCreateDevice@8  		@5005
+  _XLiveOnDestroyDevice@0		@5006
   _XLiveOnResetDevice@4  		@5007
   _XHVCreateEngine@12  			@5008
   _XLivePBufferAllocate@8  		@5016
@@ -45,6 +48,10 @@ EXPORTS
   _XLiveCloseProtectedDataContext@4  	@5038
   _XNetStartup@4  			@51
   _XNetCleanup@0  			@52
+  _XShowMessagesUI@4			@5206
+  _XShowGameInviteUI@16			@5208
+  _XShowMessageComposeUI@16		@5209
+  _XShowFriendRequestUI@12		@5210
   _XShowPlayerReviewUI@12  		@5214
   _XShowGuideUI@4  			@5215
   _XShowKeyboardUI@32 			@5216
@@ -52,6 +59,7 @@ EXPORTS
   _XShowGamerCardUI@12  		@5252
   _XCancelOverlapped@4  		@5254
   _XEnumerate@20  			@5256
+  _XLiveSignin@16			@5259
   _XShowSigninUI@8  			@5260
   _XUserGetXUID@8  			@5261
   _XUserGetSigninState@4  		@5262
@@ -60,6 +68,7 @@ EXPORTS
   _XUserCheckPrivilege@12  		@5265
   _XUserGetSigninInfo@12  		@5267
   _XNotifyCreateListener@8  		@5270
+  _XShowPlayersUI@4			@5271
   _XUserReadGamerpictureByKey@24 	@5273
   _XShowFriendsUI@4 			@5275
   _XUserSetProperty@16  		@5276
@@ -68,12 +77,14 @@ EXPORTS
   _XUserCreateAchievementEnumerator@36	@5280
   _XUserReadStats@32  			@5281
   _XUserCreateStatsEnumeratorByRank@28  @5284
+  _XUserCreateStatsEnumeratorByRating@32	@5285
   _XUserCreateStatsEnumeratorByXuid@32  @5286
   _XUserSetContextEx@16  		@5292
   _XUserSetPropertyEx@20  		@5293
   _XLivePBufferGetByteArray@16  	@5294
   _XLivePBufferSetByteArray@16  	@5295
   _XLiveInitializeEx@8  		@5297
+  _XNetRandom@8				@53
   _XSessionCreate@32  			@5300
   _XStringVerify@28  			@5303
   _XStorageUploadFromMemory@20  	@5305
@@ -87,6 +98,8 @@ EXPORTS
   _XSessionWriteStats@24  		@5317
   _XSessionStart@12  			@5318
   _XSessionSearchEx@44  		@5319
+  _XSessionSearchByID@24		@5320
+  _XSessionSearch@40			@5321
   _XSessionModify@20  			@5322
   _XSessionMigrateHost@16  		@5323
   _XOnlineGetNatType@0  		@5324
@@ -103,9 +116,11 @@ EXPORTS
   _XSessionLeaveRemote@16  		@5336
   _XUserWriteProfileSettings@16  	@5337
   _XUserReadProfileSettingsByXuid@36  	@5339
+  _XSessionModifySkill@16		@5342
   _XLiveCalculateSkill@20  		@5343
   _XStorageBuildServerPath@28  		@5344
   _XStorageDownloadToMemory@28  	@5345
+  _XLiveProtectedCreateFile@36		@5348
   _XLiveProtectedVerifyFile@12		@5349
   _XLiveContentCreateAccessHandle@28	@5350
   _XLiveContentUninstall@12		@5352
@@ -127,6 +142,8 @@ EXPORTS
   _XNotifyGetNext@16  			@651
   _XNotifyPositionUI@4			@652
   _XNetGetConnectStatus@4  		@66
+  _XNetDnsLookup@12			@67
+  _XNetDnsRelease@4			@68
   _XNetQosListen@20  			@69
   _XSocketSetSockOpt@20  		@7
   _XNetQosLookup@48  			@70
@@ -134,5 +151,6 @@ EXPORTS
   _XNetQosRelease@4  			@72
   _XNetGetTitleXnAddr@4  		@73
   _XNetGetEthernetLinkStatus@0  	@75
+  _XNetGetOpt@12			@78
   _XNetSetSystemLinkPort@4  		@84
   _XSocketGetSockName@12  		@9

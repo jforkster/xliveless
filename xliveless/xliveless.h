@@ -20,6 +20,7 @@ enum GameVersion {
     EflcPatch1      = 0x00030001,   // EfLC 1.1.1.0
     EflcPatch1R     = 0x52030001,   // RfLC 1.1.0.1 (R)
     EflcPatch2      = 0x00030001,   // EfLC 1.1.2.0
+    DR2Unpatched    = 0x00040000,   // Dead Rising 2
 };
 
 // for C/C++ plugins
